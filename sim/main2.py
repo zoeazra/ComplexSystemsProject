@@ -1,26 +1,13 @@
-"""
-"main.py"
-
-Run this module to start the simulation.
-
-Usage:
--> python main.py [orbit number (between 0 and 99)] [view (optional)]
-
-* If "view" is given, an animation will start up in the browser.
-* Data will be saved to "sim_data" in the folder corresponding to the group number.
-"""
-
-
 import sys
 import numpy as np
 from tqdm import tqdm
 import csv
 import random
+import matplotlib.pyplot as plt
 
 from model import *
 from view import View
 from data_cleaning import data_array, all_groups
-
 
 def fast_arr(objects: np.ndarray):
     """
@@ -33,6 +20,72 @@ def fast_arr(objects: np.ndarray):
         [[object[0], object[4], object[6], object[13], 0, 0, 0] for object in objects]
     )
 
+def plot_graphs(debris_file: str, collisions_file: str):
+    """
+    Plot the cumulative number of debris and collisions over time based on the data in the CSV files.
+
+    debris_file: Path to the CSV file containing debris data.
+    collisions_file: Path to the CSV file containing collisions data.
+    """
+    # Debris Data
+    times_debris = []
+    debris_counts = []
+    cumulative_debris = 0
+    with open(debris_file, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)  # Skip the header
+        for row in reader:
+            debris_added = int(row[0])
+            cumulative_debris += debris_added
+            times_debris.append(float(row[1]))
+            debris_counts.append(cumulative_debris)
+
+    # Collisions Data
+    times_collisions = []
+    collision_counts = []
+    collision_time_map = {}
+
+    with open(collisions_file, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)  # Skip the header
+        for row in reader:
+            time = float(row[2])
+            if time in collision_time_map:
+                collision_time_map[time] += 1
+            else:
+                collision_time_map[time] = 1
+
+    # Sort and prepare cumulative collision data
+    sorted_times = sorted(collision_time_map.keys())
+    cumulative_collisions = 0
+    for time in sorted_times:
+        cumulative_collisions += collision_time_map[time]
+        times_collisions.append(time)
+        collision_counts.append(cumulative_collisions)
+
+    # Generate the graphs
+    plt.figure(figsize=(12, 6))
+
+    # Plot Debris
+    plt.subplot(1, 2, 1)
+    plt.plot(times_debris, debris_counts, marker='o', label="Cumulative Debris Count", color='blue')
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Cumulative Number of Debris")
+    plt.title("Debris Over Time")
+    plt.legend()
+    plt.grid(True)
+
+    # Plot Collisions
+    plt.subplot(1, 2, 2)
+    plt.plot(times_collisions, collision_counts, marker='o', color='orange', label="Cumulative Collisions")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Cumulative Number of Collisions")
+    plt.title("Collisions Over Time")
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
 
 def run_sim(
     objects: np.ndarray,
@@ -152,8 +205,8 @@ if __name__ == "__main__":
         objects,
         group,
         draw,
-        margin=700,
-        endtime=100_000,
+        margin=70000,
+        endtime=1_000_000,
         timestep=5,
         epoch=1675209600.0,
         probability=0,
@@ -163,6 +216,9 @@ if __name__ == "__main__":
 
     # Save the data to "sim_data" in the correct group folder.
 
+    debris_file = f"sim_data/group_{objects[0][12]}/debris.csv"
+    collisions_file = f"sim_data/group_{objects[0][12]}/collisions.csv"
+
     with open(f"sim_data/group_{objects[0][12]}/parameters.csv", "w") as csvfile:
         write = csv.writer(csvfile)
         write.writerow(
@@ -170,14 +226,19 @@ if __name__ == "__main__":
         )
         write.writerows(parameters)
 
-    with open(f"sim_data/group_{objects[0][12]}/collisions.csv", "w") as csvfile:
+    with open(collisions_file, "w") as csvfile:
         write = csv.writer(csvfile)
         write.writerow(["object1", "object2", "time"])
         write.writerows(collisions)
 
-    with open(f"sim_data/group_{objects[0][12]}/debris.csv", "w") as csvfile:
+    with open(debris_file, "w") as csvfile:
         write = csv.writer(csvfile)
         write.writerow(["number_debris", "time"])
         write.writerows(added_debris)
 
     print(f"\ngroup {group} done running")
+
+    # Generate graphs if the simulation is not in 'draw' mode
+    if not draw:
+        print("\nGenerating debris and collision graphs...")
+        plot_graphs(debris_file, collisions_file)
