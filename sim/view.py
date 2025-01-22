@@ -46,9 +46,13 @@ class View:
     def _get_color_(self, object: np.ndarray) -> vector:
         """Returns the color vector of the given object"""
 
-        if len(object) < 7 or object[7] == "DEBRIS":
+        # if len(object) < 7 or object[7] == "DEBRIS":
+        #     return vector(1, 0, 0)
+    
+        if object[3] == 1: # 1 is debris
             return vector(1, 0, 0)
         else:
+            # 0 is satellite
             return vector(1, 1, 1)
 
     def draw(self, objects: np.ndarray, time, fps=40):

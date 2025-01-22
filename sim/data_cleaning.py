@@ -144,4 +144,5 @@ bool_list = [0 if j == "PAYLOAD" else 1 for _, j in dataset["OBJECT_TYPE"].items
 dataset["object_bool"] = bool_list
 
 """ FINAL DATASET """
+print("DATA CLEAN fully OBJECT Columns:", dataset.columns.tolist())
 data_array = dataset.to_numpy()
