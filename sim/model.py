@@ -204,38 +204,73 @@ def check_collisions(
                 if np.linalg.norm(pos1 - pos2) < margin:
                     return objects[i], objects[j]
 
-
 @jit(nopython=True)
-def collision(object1: np.ndarray, object2: np.ndarray):
+def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
     """
-    Add a new debris at the position of the objects involved with a adjusted
-    anomaly and semimajor-axis.
+    Generate debris as a result of a collision.
 
-    object_involved: np.array of the object to be evaluated and has to be in the
-    following form:
-     -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATTELITE/DEBRIS_BOOL',
-    'pos_x', pos_y', 'pos_z'].
+    object1, object2: The two colliding objects, each in the form:
+    -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL',
+       'pos_x', 'pos_y', 'pos_z'].
 
-    Returns an array of the same form as above with the adjusted values.
+    Returns:
+        A NumPy array of debris objects.
     """
-    new_debris = list()
-    g = np.random.rand()
-    new_semi_major_axis = object1[2] + ((g * 200) - 100)
+    num_debris = 2  # Fixed number of debris generated per collision
+    new_debris = np.zeros((num_debris, 7))  # Preallocate array for debris
 
-    new_mean_anomaly = object1[1] + 180
-    if new_mean_anomaly > 360:
-        new_mean_anomaly -= 360
+    for i in range(num_debris):
+        g = np.random.rand()
+        new_semi_major_axis = object1[2] + ((g * 200) - 100)
+        new_mean_anomaly = object1[1] + np.random.uniform(-30, 30)
 
-    new_debris.append(
-        [
-            object1[0],
-            new_mean_anomaly,
-            new_semi_major_axis,
-            1,
-            -object1[4],
-            -object1[5],
-            -object1[6],
-        ]
-    )
+        # Wrap anomalies within 0-360
+        if new_mean_anomaly > 360:
+            new_mean_anomaly -= 360
+        elif new_mean_anomaly < 0:
+            new_mean_anomaly += 360
+
+        new_debris[i, 0] = object1[0]  # EPOCH
+        new_debris[i, 1] = new_mean_anomaly  # Mean anomaly
+        new_debris[i, 2] = new_semi_major_axis  # Semi-major axis
+        new_debris[i, 3] = 1  # Mark as debris
+        new_debris[i, 4] = object1[4] + np.random.uniform(-10, 10)  # pos_x
+        new_debris[i, 5] = object1[5] + np.random.uniform(-10, 10)  # pos_y
+        new_debris[i, 6] = object1[6] + np.random.uniform(-10, 10)  # pos_z
 
     return new_debris
+
+#@jit(nopython=True)
+#def collision(object1: np.ndarray, object2: np.ndarray):
+#    """
+#    Add a new debris at the position of the objects involved with a adjusted
+#    anomaly and semimajor-axis.
+#
+#    object_involved: np.array of the object to be evaluated and has to be in the
+#    following form:
+#     -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATTELITE/DEBRIS_BOOL',
+#    'pos_x', pos_y', 'pos_z'].
+#
+#    Returns an array of the same form as above with the adjusted values.
+#    """
+#    new_debris = list()
+#    g = np.random.rand()
+#    new_semi_major_axis = object1[2] + ((g * 200) - 100)
+#
+#    new_mean_anomaly = object1[1] + 180
+#    if new_mean_anomaly > 360:
+#        new_mean_anomaly -= 360
+
+#    new_debris.append(
+#        [
+#            object1[0],
+#            new_mean_anomaly,
+#            new_semi_major_axis,
+#            1,
+#            -object1[4],
+#            -object1[5],
+#            -object1[6],
+#        ]
+#    )
+
+#    return new_debris
