@@ -140,6 +140,10 @@ for i in group_amount.index:
 
 """ Dividing the dataset up debris and satellites """
 dataset = dataset.copy()
+
+# only keep payloads in the dataset
+dataset = dataset[dataset["OBJECT_TYPE"] == "PAYLOAD"]
+
 bool_list = [0 if j == "PAYLOAD" else 1 for _, j in dataset["OBJECT_TYPE"].items()]
 dataset["object_bool"] = bool_list
 
