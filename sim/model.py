@@ -214,7 +214,18 @@ def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
     Returns:
         A NumPy array of debris objects.
     """
-    num_debris = 2  # Fixed number of debris generated per collision
+    r1 = np.linalg.norm(np.array([object1[4], object1[5], object1[6]])) + 1e-6  # distance from Earth for object 1
+    r2 = np.linalg.norm(np.array([object2[4], object2[5], object2[6]])) + 1e-6  # distance from Earth for object 2
+
+
+    v1 = np.sqrt(mu * ( (2 / r1) - 1 / object1[2])) + 1e-6 # velocity of object 1
+    v2 = np.sqrt(mu * ( (2 / r2) - 1 / object2[2])) + 1e-6 # velocity of object 2
+
+    rel_velocity = np.abs(v1 - v2)
+    if rel_velocity == 0:
+        rel_velocity = 1e-6
+    num_debris = max(2, min(int(rel_velocity // 500), 7))  # Debris generated per collision. Check again the factor of 500. Clip in order to keep it in a normal range.
+
     new_debris = np.zeros((num_debris, 7))  # Preallocate array for debris
 
     for i in range(num_debris):
@@ -236,7 +247,7 @@ def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
         new_debris[i, 5] = object1[5] + np.random.uniform(-10, 10)  # pos_y
         new_debris[i, 6] = object1[6] + np.random.uniform(-10, 10)  # pos_z
 
-    return new_debris
+    return new_debris
 
 #@jit(nopython=True)
 #def collision(object1: np.ndarray, object2: np.ndarray):
