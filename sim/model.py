@@ -6,12 +6,10 @@ every time step are accelerated using Numba's jit decorator. The decorator
 ensures that the these functions will be compiled in C code.
 """
 
-
 import numpy as np
 from numba import jit
 
 from scipy.spatial.transform import Rotation
-
 
 # standard gravitational parameter = G * M
 mu = 6.6743 * 10**-11 * 5.972 * 10**24  # m**3 * s**-2
