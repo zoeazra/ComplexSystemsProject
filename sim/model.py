@@ -247,7 +247,7 @@ def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
         new_debris[i, 5] = object1[5] + np.random.uniform(-10, 10)  # pos_y
         new_debris[i, 6] = object1[6] + np.random.uniform(-10, 10)  # pos_z
 
-    return new_debris
+    return new_debris
 
 #@jit(nopython=True)
 #def collision(object1: np.ndarray, object2: np.ndarray):
