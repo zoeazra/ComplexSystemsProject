@@ -74,6 +74,7 @@ def run_sim(
     # if draw:
     #     view = View(objects)
 
+    objects = objects[0:49]
     initialize_positions(objects, epoch)
     objects_fast = fast_arr(objects)
     matrices = np.array([object[11] for object in objects])
@@ -90,7 +91,7 @@ def run_sim(
     ):
         calc_all_positions(objects_fast, matrices, time)
 
-        if len(objects_fast) > 20000:
+        if len(objects_fast) > 10000:
             print(f"\nGroup {group} process killed.")
             sys.exit()
 
@@ -115,21 +116,27 @@ def run_sim(
 
                 # Save the collision data
                 collisions.append([object1, object2, time])
+                added_debris.append([new_debris, time])
 
-        # if (
-        #     frequency_new_debris != None
-        #     and (time - epoch) % (frequency_new_debris * timestep) == 0
-        # ):  # Add new debris at timesteps indicated by frequency_new_debris.
-        #     objects_fast, matrices, new_debris = random_debris(
-        #         objects_fast, matrices, time, percentage
-        #     )
-        #     added_debris.append([new_debris, time])
+        if (
+            frequency_new_debris != None
+            and (time - epoch) % (frequency_new_debris * timestep) == 0
+        ):  # Add new debris or satellites at timesteps indicated by frequency_new_debris.
+            
+            # objects_fast, matrices = launch_satellites(
+            #     objects_fast, matrices, time
+            # )
 
-        #     if draw:
-        #         view.make_new_drawables(objects_fast)
+            objects_fast, matrices, new_debris = random_debris(
+                objects_fast, matrices, time, percentage
+            )
+            added_debris.append([new_debris, time])
+
+            if draw:
+                view.make_new_drawables(objects_fast)
 
         if draw:
-            if (time - epoch) % (40 * timestep) == 0:
+            if (time - epoch) % (frequency_new_debris * timestep) == 0:
                 view.make_new_drawables(objects_fast)
             view.draw(objects_fast, time - epoch)
 
@@ -163,13 +170,13 @@ if __name__ == "__main__":
         objects,
         group,
         draw,
-        margin=700,
+        margin=5000,
         endtime=100_000,
         timestep=5,
         epoch=1675209600.0,
         probability=0,
         percentage=0,
-        frequency_new_debris=None,
+        frequency_new_debris=40,
     )
 
     # Save the data to "sim_data" in the correct group folder.

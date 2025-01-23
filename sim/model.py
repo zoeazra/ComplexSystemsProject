@@ -57,9 +57,9 @@ def random_debris(
     of new debris.
     """
 
-    n_new_debris = np.ceil(len(objects) * (percentage / 100))
+    # n_new_debris = np.ceil(len(objects) * (percentage / 100))
 
-    for _ in range(int(n_new_debris)):
+    for _ in range(int(1)):
         mean_anomaly, semimajor_axis, matrix = random_params(objects)
         matrices = np.append(matrices, matrix, axis=0)
         pos = new_position(time, time + 1, mean_anomaly, semimajor_axis, matrices[-1])
@@ -68,8 +68,22 @@ def random_debris(
         )
 
         objects = np.append(objects, new_debris, axis=0)
-    return objects, matrices, int(n_new_debris)
+    return objects, matrices, int(1)
 
+def launch_satellites(
+    objects: np.ndarray,
+    matrices: np.ndarray,
+    time: float,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    mean_anomaly, semimajor_axis, matrix = random_params(objects)
+    matrices = np.append(matrices, matrix, axis=0)
+    pos = new_position(time, time + 1, mean_anomaly, semimajor_axis, matrices[-1])
+    new_satellite = np.array(
+        [[time, mean_anomaly, semimajor_axis, 0, pos[0], pos[1], pos[2]]]
+    )
+
+    objects = np.append(objects, new_satellite, axis=0)
+    return objects, matrices
 
 def random_params(objects) -> tuple[float, float, np.ndarray]:
     """
@@ -231,6 +245,10 @@ def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
                 distance = (dx * dx + dy * dy + dz * dz) ** 0.5
                 if distance < margin:
                     collision_pairs.append((i, j, objects[i], objects[j]))
+                    
+                    # avoid cpu burning, return if the number of collision pairs exceeds 100
+                    if len(collision_pairs) > 5:
+                        return collision_pairs
     return collision_pairs
 
 @jit(nopython=True)
