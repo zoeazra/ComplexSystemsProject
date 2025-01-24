@@ -117,6 +117,11 @@ def run_sim(
                 # Save the collision data
                 collisions.append([object1, object2, time])
                 added_debris.append([new_debris, time])
+        
+        # launch a satellite every 500 seconds
+        if time % 2000 == 0:
+            objects_fast, matrices = launch_satellites(objects_fast, matrices, time)
+            print(f"Satellite launched at time {time}. Total objects: {len(objects_fast)}")
 
         if (
             frequency_new_debris != None
