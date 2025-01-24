@@ -245,8 +245,9 @@ def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
                     collision_pairs.append((i, j, objects[i], objects[j]))
                     
                     # avoid cpu burning, return if the number of collision pairs exceeds 100
-                    if len(collision_pairs) > 5:
-                        return collision_pairs
+                    # THIS IS FOR ALEX CPU
+                    # if len(collision_pairs) > 5:
+                    #     return collision_pairs
     return collision_pairs
 
 @jit(nopython=True)
