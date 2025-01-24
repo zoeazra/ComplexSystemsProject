@@ -8,71 +8,50 @@ import matplotlib.pyplot as plt
 from model import *
 from view import View
 from data_cleaning import data_array, all_groups
+
 import ast
 
 import csv
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 
-def live_plot_collisions(collisions_file: str, save_interval: int = 10, output_image: str = "collisions_live.png"):
+def plot_collisions(collisions_file: str):
     """
-    Plot the cumulative number of collisions over time in real-time and periodically save the graph.
+    Plot the cumulative number of collisions over time based on the data in the collisions CSV file.
 
     collisions_file: Path to the CSV file containing collisions data.
-    save_interval: Interval in seconds to save the graph.
-    output_image: Path to save the output graph image.
     """
+    # Collisions Data
     times_collisions = []
     collision_counts = []
-    last_save_time = time.time()  # Track the last time the graph was saved
+    collision_time_map = {}
 
-    def update_graph(frame):
-        nonlocal last_save_time
-        # Read the collisions file and update the data
-        collision_time_map = {}
-        try:
-            with open(collisions_file, 'r') as csvfile:
-                reader = csv.reader(csvfile)
-                next(reader)  # Skip the header
-                for row in reader:
-                    time = float(row[2])  # Extract the collision time
-                    if time in collision_time_map:
-                        collision_time_map[time] += 1
-                    else:
-                        collision_time_map[time] = 1
-        except FileNotFoundError:
-            print(f"File {collisions_file} not found.")
-            return
+    with open(collisions_file, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)  # Skip the header
+        for row in reader:
+            time = float(row[2])  # Extract the collision time from the row
+            if time in collision_time_map:
+                collision_time_map[time] += 1
+            else:
+                collision_time_map[time] = 1
 
-        # Sort and prepare cumulative collision data
-        sorted_times = sorted(collision_time_map.keys())
-        cumulative_collisions = 0
-        times_collisions.clear()
-        collision_counts.clear()
-        for time in sorted_times:
-            cumulative_collisions += collision_time_map[time]
-            times_collisions.append(time)
-            collision_counts.append(cumulative_collisions)
+    # Sort and prepare cumulative collision data
+    sorted_times = sorted(collision_time_map.keys())
+    cumulative_collisions = 0
+    for time in sorted_times:
+        cumulative_collisions += collision_time_map[time]
+        times_collisions.append(time)
+        collision_counts.append(cumulative_collisions)
 
-        # Clear and redraw the plot
-        plt.cla()
-        plt.plot(times_collisions, collision_counts, marker='o', color='orange', label="Cumulative Collisions")
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("Cumulative Number of Collisions")
-        plt.title("Collisions Over Time")
-        plt.legend()
-        plt.grid(True)
-
-        # Save the graph periodically
-        current_time = time.time()
-        if current_time - last_save_time >= save_interval:
-            plt.savefig(output_image)
-            last_save_time = current_time  # Update the last save time
-            print(f"Graph saved as {output_image}.")
-
-    # Set up the live plot
-    fig = plt.figure(figsize=(8, 6))
-    ani = FuncAnimation(fig, update_graph, interval=1000)  # Update every second
+    # Generate the collision graph
+    plt.figure(figsize=(8, 6))
+    plt.plot(times_collisions, collision_counts, marker='o', color='orange', label="Cumulative Collisions")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Cumulative Number of Collisions")
+    plt.title("Collisions Over Time")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
     plt.show()
 
 def fast_arr(objects: np.ndarray):
@@ -222,8 +201,8 @@ if __name__ == "__main__":
         objects,
         group,
         draw,
-        margin=2500,
-        endtime=200_000,
+        margin=700,
+        endtime=100_000,
         timestep=5,
         epoch=1675209600.0,
         probability=0,
@@ -258,4 +237,4 @@ if __name__ == "__main__":
     # Generate graphs if the simulation is not in 'draw' mode
     if not draw:
         print("\nGenerating debris and collision graphs...")
-        live_plot_collisions(collisions_file, save_interval=10, output_image="collisions_live.png")
+        plot_collisions(collisions_file)
