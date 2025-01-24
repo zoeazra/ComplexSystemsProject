@@ -53,7 +53,7 @@ def run_sim(
     objects: array of objects in the following form:
     -> ['EPOCH', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER',
        'MEAN_ANOMALY', 'NORAD_CAT_ID', 'SEMIMAJOR_AXIS', 'OBJECT_TYPE',
-       'RCS_SIZE', 'LAUNCH_DATE', 'positions', 'rotation_matrix', 'groups'].
+       'RCS_SIZE', 'LAUNCH_DATE', 'positions', 'rotation_matrix', 'groups', 'object_bool'].
     group: number of the orbit group.
     draw: if true an animation will be started in the browser.
     margin: threshold of when two objects are colliding.
@@ -71,12 +71,16 @@ def run_sim(
     Returns a tuple of the simulation parameters, new debris and collision data.
     """
 
-    if draw:
-        view = View(objects)
+    # if draw:
+    #     view = View(objects)
 
+    objects = objects[0:49]
     initialize_positions(objects, epoch)
     objects_fast = fast_arr(objects)
     matrices = np.array([object[11] for object in objects])
+
+    if draw:
+        view = View(objects_fast)
 
     parameters, collisions, added_debris = [], [], []
 
@@ -87,30 +91,42 @@ def run_sim(
     ):
         calc_all_positions(objects_fast, matrices, time)
 
-        if len(objects_fast) > 2000:
+        if len(objects_fast) > 10000:
             print(f"\nGroup {group} process killed.")
             sys.exit()
 
-        collided_objects = check_collisions(objects_fast, margin)
-        if collided_objects != None:
+        # issue 1, make a list of all the objects that are colliding, not just the first collision
+        # issue 2, should update the matrices for the new debris
+        collision_pairs = check_collisions_optimized(objects_fast, margin)
+        if len(collision_pairs) != 0:
+            print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)}")
+            for collided_objects in collision_pairs:
+                index1, index2, object1, object2 = collided_objects[0], collided_objects[1], collided_objects[2], collided_objects[3]
+                
+                # Compute new debris
+                new_debris = generate_debris_with_margin(object1, object2, margin)
 
-            object1, object2 = collided_objects[0], collided_objects[1]
-            # Compute new debris
-            new_debris = collision(object1, object2)
+                # Add new debris to the total objects array
+                objects_fast = np.concatenate((objects_fast, new_debris), axis=0)
 
-            # Add new debris to the total objects array and a random matrix to
-            # the matrices array.
-            objects_fast = np.concatenate((objects_fast, new_debris), axis=0)
-            new_matrix = matrices[random.randint(0, len(matrices) - 1)]
-            matrices = np.concatenate((matrices, [new_matrix]), axis=0)
+                # update the rotation matrices for the new debris
+                for _ in new_debris:
+                    new_matrix = matrices[random.randint(0, len(matrices) - 1)]  
+                    matrices = np.concatenate((matrices, [new_matrix]), axis=0)
 
-            # Save the collision data
-            collisions.append([object1, object2, time])
+                # Save the collision data
+                collisions.append([object1, object2, time])
+                added_debris.append([new_debris, time])
 
         if (
             frequency_new_debris != None
             and (time - epoch) % (frequency_new_debris * timestep) == 0
-        ):  # Add new debris at timesteps indicated by frequency_new_debris.
+        ):  # Add new debris or satellites at timesteps indicated by frequency_new_debris.
+            
+            # objects_fast, matrices = launch_satellites(
+            #     objects_fast, matrices, time
+            # )
+
             objects_fast, matrices, new_debris = random_debris(
                 objects_fast, matrices, time, percentage
             )
@@ -120,6 +136,8 @@ def run_sim(
                 view.make_new_drawables(objects_fast)
 
         if draw:
+            if (time - epoch) % (frequency_new_debris * timestep) == 0:
+                view.make_new_drawables(objects_fast)
             view.draw(objects_fast, time - epoch)
 
     parameters.append(
@@ -152,13 +170,13 @@ if __name__ == "__main__":
         objects,
         group,
         draw,
-        margin=700,
+        margin=5000,
         endtime=100_000,
         timestep=5,
         epoch=1675209600.0,
         probability=0,
         percentage=0,
-        frequency_new_debris=None,
+        frequency_new_debris=40,
     )
 
     # Save the data to "sim_data" in the correct group folder.

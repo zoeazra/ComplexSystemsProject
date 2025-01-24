@@ -55,9 +55,9 @@ def random_debris(
     of new debris.
     """
 
-    n_new_debris = np.ceil(len(objects) * (percentage / 100))
+    # n_new_debris = np.ceil(len(objects) * (percentage / 100))
 
-    for _ in range(int(n_new_debris)):
+    for _ in range(int(1)):
         mean_anomaly, semimajor_axis, matrix = random_params(objects)
         matrices = np.append(matrices, matrix, axis=0)
         pos = new_position(time, time + 1, mean_anomaly, semimajor_axis, matrices[-1])
@@ -66,8 +66,22 @@ def random_debris(
         )
 
         objects = np.append(objects, new_debris, axis=0)
-    return objects, matrices, int(n_new_debris)
+    return objects, matrices, int(1)
 
+def launch_satellites(
+    objects: np.ndarray,
+    matrices: np.ndarray,
+    time: float,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    mean_anomaly, semimajor_axis, matrix = random_params(objects)
+    matrices = np.append(matrices, matrix, axis=0)
+    pos = new_position(time, time + 1, mean_anomaly, semimajor_axis, matrices[-1])
+    new_satellite = np.array(
+        [[time, mean_anomaly, semimajor_axis, 0, pos[0], pos[1], pos[2]]]
+    )
+
+    objects = np.append(objects, new_satellite, axis=0)
+    return objects, matrices
 
 def random_params(objects) -> tuple[float, float, np.ndarray]:
     """
@@ -202,6 +216,39 @@ def check_collisions(
                 if np.linalg.norm(pos1 - pos2) < margin:
                     return objects[i], objects[j]
 
+@jit(nopython=True, parallel=True)
+def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
+    """
+    1. Optimized version of the check_collisions function using Numba's parallel, which splits the loop iterations in multi cores.
+    2. Avoiding the array slicing.
+    3. Meanwhile, collect all the collision pairs then return them in a list.
+
+    Parameters:
+        objects (np.ndarray): Array of objects in the form:
+            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
+        margin (float): Collision threshold distance.
+
+    Returns:
+        list of tuples: Each tuple contains (index_i, index_j, object_i, object_j)
+    """
+    collision_pairs = []
+
+    for i in range(len(objects) - 1):
+        for j in range(i + 1, len(objects)):
+            if objects[i][3] != 0 or objects[j][3] != 0:
+                # avoid array slicing, manually extract and calculate the distance
+                dx = objects[i][4] - objects[j][4]
+                dy = objects[i][5] - objects[j][5]
+                dz = objects[i][6] - objects[j][6]
+                distance = (dx * dx + dy * dy + dz * dz) ** 0.5
+                if distance < margin:
+                    collision_pairs.append((i, j, objects[i], objects[j]))
+                    
+                    # avoid cpu burning, return if the number of collision pairs exceeds 100
+                    if len(collision_pairs) > 5:
+                        return collision_pairs
+    return collision_pairs
+
 @jit(nopython=True)
 def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
     """
@@ -246,6 +293,43 @@ def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
         new_debris[i, 4] = object1[4] + np.random.uniform(-10, 10)  # pos_x
         new_debris[i, 5] = object1[5] + np.random.uniform(-10, 10)  # pos_y
         new_debris[i, 6] = object1[6] + np.random.uniform(-10, 10)  # pos_z
+
+    return new_debris
+
+@jit(nopython=True)
+def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin: float) -> np.ndarray:
+    """
+    Add a new debris at the position of the objects involved with a adjusted
+    anomaly and semimajor-axis.
+
+    object_involved: np.array of the object to be evaluated and has to be in the
+    following form:
+        -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATTELITE/DEBRIS_BOOL',
+    'pos_x', pos_y', 'pos_z'].
+
+    Returns an array of the same form as above with the adjusted values.
+    """
+    num_debris = 2 # Fixed number of debris generated per collision
+    new_debris = list()
+    g = np.random.rand()
+    new_semi_major_axis = object1[2] + ((g * 200) - 100)
+
+    new_mean_anomaly = object1[1] + 180
+    if new_mean_anomaly > 360:
+        new_mean_anomaly -= 360
+
+    for i in range(num_debris):
+        new_debris.append(
+            [
+                object1[0],
+                new_mean_anomaly,
+                new_semi_major_axis,
+                1,
+                object1[4] + np.random.uniform(margin, 2*margin),
+                object1[5] + np.random.uniform(margin, 2*margin),
+                object1[6] + np.random.uniform(margin, 2*margin),
+            ]
+        )
 
     return new_debris
 
