@@ -14,6 +14,8 @@ from scipy.spatial.transform import Rotation
 # standard gravitational parameter = G * M
 mu = 6.6743 * 10**-11 * 5.972 * 10**24  # m**3 * s**-2
 
+# define a variable of the length of the initial objects
+INI_NUMBERS = 49
 
 def initialize_positions(objects: np.ndarray, epoch=1675209600.0):
     """
@@ -333,6 +335,32 @@ def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin
         )
 
     return new_debris
+
+def debris_falldown(objects: np.ndarray, rotation_matrix: np.ndarray, initial_numbers = INI_NUMBERS):
+    """
+    Simulate the debris falling down to the Earth.
+    """
+
+    # randomly pick up debris from object[initial_numbers:] to remove them, b the uniform distribution
+    # sync the rotation_matrix with the objects
+    if len(objects) - initial_numbers < 100:
+        return objects, rotation_matrix, 0
+
+    # numbers_falldown follow the normal distribution from 0 to len(objects) - initial_numbers
+    # the expect is the half of the len(objects) - initial_numbers, and the std is the half of the expect
+    numbers_falldown = int(np.random.normal((len(objects) - initial_numbers) / 10, (len(objects) - initial_numbers) / 20))
+    
+    if numbers_falldown <= 0 or numbers_falldown >= len(objects) - initial_numbers:
+        return objects, rotation_matrix, 0
+
+    # make sure the numbers_falldown is graeter than 0 and less than len(objects) - initial_numbers
+    assert numbers_falldown > 0 and numbers_falldown < len(objects) - initial_numbers
+
+    # just remove the debris from index initial_numbers to initial_numbers + numbers_falldown
+    objects = np.delete(objects, np.arange(initial_numbers, initial_numbers + numbers_falldown), axis=0)
+    rotation_matrix = np.delete(rotation_matrix, np.arange(initial_numbers, initial_numbers + numbers_falldown), axis=0)
+    print(f"Debris falldown: {numbers_falldown} debris have fallen down to the Earth.")
+    return objects, rotation_matrix, numbers_falldown
 
 #@jit(nopython=True)
 #def collision(object1: np.ndarray, object2: np.ndarray):

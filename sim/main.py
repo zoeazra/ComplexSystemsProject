@@ -74,7 +74,7 @@ def run_sim(
     # if draw:
     #     view = View(objects)
 
-    objects = objects[0:49]
+    objects = objects[0 : INI_NUMBERS-1] # pick up the first INI_NUMBERS objects from the real data
     initialize_positions(objects, epoch)
     objects_fast = fast_arr(objects)
     matrices = np.array([object[11] for object in objects])
@@ -99,7 +99,7 @@ def run_sim(
         # issue 2, should update the matrices for the new debris
         collision_pairs = check_collisions_optimized(objects_fast, margin)
         if len(collision_pairs) != 0:
-            print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)}")
+            print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)} \n")
             for collided_objects in collision_pairs:
                 index1, index2, object1, object2 = collided_objects[0], collided_objects[1], collided_objects[2], collided_objects[3]
                 
@@ -117,12 +117,19 @@ def run_sim(
                 # Save the collision data
                 collisions.append([object1, object2, time])
                 added_debris.append([new_debris, time])
+        
+        
 
         if (
             frequency_new_debris != None
             and (time - epoch) % (frequency_new_debris * timestep) == 0
         ):  # Add new debris or satellites at timesteps indicated by frequency_new_debris.
             
+            
+            objects_fast, matrices, falldown_number = debris_falldown(objects_fast, matrices)
+            if falldown_number != 0:
+                print(f"Debris_falldown detected, in epoch {time}, number of debrits away: {falldown_number} \n")
+
             # objects_fast, matrices = launch_satellites(
             #     objects_fast, matrices, time
             # )
