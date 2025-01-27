@@ -16,6 +16,8 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import random
+import file_sys
+import time as tf
 
 from model import *
 from view import View
@@ -83,28 +85,35 @@ def run_sim(
         view = View(objects_fast)
 
     parameters, collisions, added_debris = [], [], []
+    current_time = tf.strftime("%Y%m%d-%H%M%S")
 
     for time in tqdm(
         range(int(epoch), int(epoch + endtime), timestep),
         ncols=100,
         desc=f"group: {group}",  # tqdm for the progress bar.
-    ):
+    ):  
+    #for time in range(int(epoch), int(epoch + endtime), timestep):
+        #print(f"\nGroup {group} process running at time {time}.")
         calc_all_positions(objects_fast, matrices, time)
 
-        if len(objects_fast) > 1500000:
+        if len(objects_fast) > 500000000:
             print(f"\nGroup {group} process killed.")
             sys.exit()
 
         # issue 1, make a list of all the objects that are colliding, not just the first collision
         # issue 2, should update the matrices for the new debris
         collision_pairs = check_collisions_optimized(objects_fast, margin)
+        total_debris_generated_this_epoch = 0
+        falldown_number = 0
+
         if len(collision_pairs) != 0:
-            print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)} \n")
+            
             for collided_objects in collision_pairs:
                 index1, index2, object1, object2 = collided_objects[0], collided_objects[1], collided_objects[2], collided_objects[3]
                 
                 # Compute new debris
                 new_debris = generate_debris_with_margin(object1, object2, margin)
+                total_debris_generated_this_epoch += len(new_debris)
 
                 # Add new debris to the total objects array
                 objects_fast = np.concatenate((objects_fast, new_debris), axis=0)
@@ -117,14 +126,13 @@ def run_sim(
                 # Save the collision data
                 collisions.append([object1, object2, time])
                 added_debris.append([new_debris, time])
-        
-        
 
+            #print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)}, number of debris generated: {total_debris_generated_this_epoch}\n")
+            
         if (
             frequency_new_debris != None
             and (time - epoch) % (frequency_new_debris * timestep) == 0
         ):  # Add new debris or satellites at timesteps indicated by frequency_new_debris.
-            
             
             objects_fast, matrices, falldown_number = debris_falldown(objects_fast, matrices)
             if falldown_number != 0:
@@ -141,7 +149,10 @@ def run_sim(
 
             if draw:
                 view.make_new_drawables(objects_fast)
-
+        
+        if len(collision_pairs) != 0 or falldown_number != 0:
+            file_sys.write(time, current_time, len(collision_pairs), total_debris_generated_this_epoch, falldown_number, file_sys.SIMU_RESULT_PATH, f"Group_{group}")
+        
         if draw:
             if (time - epoch) % (frequency_new_debris * timestep) == 0:
                 view.make_new_drawables(objects_fast)

@@ -218,7 +218,7 @@ def check_collisions(
                 if np.linalg.norm(pos1 - pos2) < margin:
                     return objects[i], objects[j]
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True)
 def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
     """
     1. Optimized version of the check_collisions function using Numba's parallel, which splits the loop iterations in multi cores.
@@ -252,7 +252,7 @@ def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
                     #     return collision_pairs
     return collision_pairs
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
     """
     Generate debris as a result of a collision.
@@ -299,7 +299,31 @@ def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
 
     return new_debris
 
-@jit(nopython=True)
+def number_of_debris_this_pair(object1: np.ndarray, object2: np.ndarray) -> int:
+    """
+    Calculate the number of debris generated per collision based on the relative velocity.
+
+    object1: The first object involved in the collision.
+    object2: The other object involved in the collision.
+
+    Returns:
+        The number of debris generated per collision.
+    """
+
+    r1 = np.linalg.norm(np.array([object1[4], object1[5], object1[6]])) + 1e-6  # distance from Earth for object 1
+    r2 = np.linalg.norm(np.array([object2[4], object2[5], object2[6]])) + 1e-6  # distance from Earth for object 2
+
+
+    v1 = np.sqrt(mu * ( (2 / r1) - 1 / object1[2])) + 1e-6 # velocity of object 1
+    v2 = np.sqrt(mu * ( (2 / r2) - 1 / object2[2])) + 1e-6 # velocity of object 2
+
+    rel_velocity = np.abs(v1 - v2)
+    if rel_velocity == 0:
+        rel_velocity = 1e-6
+    num_debris = max(2, min(int(rel_velocity // 500), 5))  # Debris generated per collision. Check again the factor of 500. Clip in order to keep it in a normal range.
+    # print(f"Number of debris generated per collision: {num_debris}")
+    return num_debris
+
 def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin: float) -> np.ndarray:
     """
     Add a new debris at the position of the objects involved with a adjusted
@@ -312,7 +336,9 @@ def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin
 
     Returns an array of the same form as above with the adjusted values.
     """
-    num_debris = 2 # Fixed number of debris generated per collision
+    # num_debris = 2 # Fixed number of debris generated per collision
+    num_debris = number_of_debris_this_pair(object1, object2)
+
     new_debris = list()
     g = np.random.rand()
     new_semi_major_axis = object1[2] + ((g * 200) - 100)
