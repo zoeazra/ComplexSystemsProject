@@ -1,11 +1,11 @@
 import csv
 import random
 import datetime
-import numpy as np  # Use numpy for generating normally distributed values
+import numpy as np
 
 # Define the file name and the number of rows
-output_file = "normal_generated.csv"
-number_of_rows = 1000000
+output_file = "compatible_normal_generated.csv"
+number_of_rows = 50000
 
 # Define column headers
 headers = [
@@ -60,34 +60,34 @@ def generate_row(index):
     mean_motion = max(0.1, np.random.normal(8.0, 2.0))  # Mean 8.0, std-dev 2.0, clipped to >0
     eccentricity = np.clip(np.random.normal(0.1, 0.05), 0.0, 1.0)  # Mean 0.1, std-dev 0.05, clipped to [0, 1]
     inclination = np.clip(np.random.normal(90.0, 20.0), 0.0, 180.0)  # Mean 90 degrees, std-dev 20, clipped to [0, 180]
-    semi_major_axis = max(6371.0, np.random.normal(20000.0, 5000.0))  # Mean 20000 km, std-dev 5000 km, clipped > Earth's radius
+    semi_major_axis = max(6371.0, np.random.normal(7371.0, 500.0))  # Mean 7371 km (LEO), std-dev 500 km
     
     return [
-        "2",
-        "GENERATED VIA SPACE-TRACK.ORG API",
-        creation_date.isoformat(),
-        "18 SPCS",
-        f"OBJECT {index}",
-        f"ID-{index}",
-        "EARTH",
-        "TEME",
-        "UTC",
-        "SGP4",
-        epoch.isoformat(),
+        "2",  # CCSDS_OMM_VERS
+        "GENERATED VIA SPACE-TRACK.ORG API",  # COMMENT
+        creation_date.isoformat(),  # CREATION_DATE
+        "18 SPCS",  # ORIGINATOR
+        f"OBJECT {index}",  # OBJECT_NAME
+        f"ID-{index}",  # OBJECT_ID
+        "EARTH",  # CENTER_NAME
+        "TEME",  # REF_FRAME
+        "UTC",  # TIME_SYSTEM
+        "SGP4",  # MEAN_ELEMENT_THEORY
+        epoch.isoformat(),  # EPOCH
         round(mean_motion, 8),  # MEAN_MOTION
         round(eccentricity, 8),  # ECCENTRICITY
         round(inclination, 4),  # INCLINATION
         round(random.uniform(0.0, 360.0), 4),  # RA_OF_ASC_NODE
         round(random.uniform(0.0, 360.0), 4),  # ARG_OF_PERICENTER
         round(random.uniform(0.0, 360.0), 4),  # MEAN_ANOMALY
-        "0",
-        "U",
+        "0",  # EPHEMERIS_TYPE
+        "U",  # CLASSIFICATION_TYPE
         random.randint(10000, 99999),  # NORAD_CAT_ID
         random.randint(0, 999),  # ELEMENT_SET_NO
         random.randint(0, 100000),  # REV_AT_EPOCH
         round(random.uniform(0.0, 0.01), 8),  # BSTAR
         round(random.uniform(-0.0001, 0.0001), 8),  # MEAN_MOTION_DOT
-        "0",
+        "0",  # MEAN_MOTION_DDOT
         round(semi_major_axis, 3),  # SEMIMAJOR_AXIS
         round(random.uniform(90.0, 1440.0), 3),  # PERIOD
         round(random.uniform(0.0, 35786.0), 3),  # APOAPSIS
@@ -96,11 +96,11 @@ def generate_row(index):
         random.choice(["SMALL", "MEDIUM", "LARGE"]),  # RCS_SIZE
         random.choice(["US", "CIS", "FR", "PRC", "IND"]),  # COUNTRY_CODE
         f"{random.randint(1950, 2021)}-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",  # LAUNCH_DATE
-        "SITE",
-        "",
-        random.randint(1000000, 9999999),
-        random.randint(100000, 999999),
-        f"0 OBJECT {index}",
+        "SITE",  # SITE
+        "",  # DECAY_DATE
+        random.randint(1000000, 9999999),  # FILE
+        random.randint(100000, 999999),  # GP_ID
+        f"0 OBJECT {index}",  # TLE_LINE0
         f"1 {random.randint(10000, 99999)}U {random.randint(10000, 99999)}A   {random.randint(10000, 99999)}",  # TLE_LINE1
         f"2 {random.randint(10000, 99999)} {random.uniform(0.0, 360.0):.4f} {random.uniform(0.0, 360.0):.4f}",  # TLE_LINE2
     ]

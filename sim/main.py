@@ -223,7 +223,7 @@ if __name__ == "__main__":
         group,
         draw,
         margin=2500,
-        endtime=200_000,
+        endtime=100_000,
         timestep=5,
         epoch=1675209600.0,
         probability=0,

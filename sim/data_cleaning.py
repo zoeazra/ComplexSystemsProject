@@ -7,17 +7,16 @@ with this data for usage in the simulation.
 Satellite and debris data source: http://astria.tacc.utexas.edu/AstriaGraph/
 """
 
-
 import pandas as pd
 import numpy as np
 import os
 import datetime
 from scipy.spatial.transform import Rotation
 
+# Load the dataset
+dataset = pd.read_csv("../data/uniform_generated.csv")
 
-dataset = pd.read_csv("../data/satellites.csv")
-
-# removing irrelevant columns
+# Removing irrelevant columns
 dataset = dataset.drop(
     columns=[
         "CCSDS_OMM_VERS",
@@ -53,10 +52,8 @@ dataset = dataset.drop(
     ]
 )
 
-
 def epoch(df_column):
     """Converting datetime to epoch"""
-
     date_list = list(df_column)
     new_date_list = []
 
@@ -73,10 +70,12 @@ def epoch(df_column):
         )
     return new_date_list
 
-
 """ Only selecting data in LEO """
 dataset = dataset.sort_values("SEMIMAJOR_AXIS")
-dataset = dataset[dataset["SEMIMAJOR_AXIS"] < 8371]
+dataset = dataset[dataset["SEMIMAJOR_AXIS"] < 8371]  # LEO cutoff
+if dataset.empty:
+    raise ValueError("Dataset is empty after filtering for LEO objects. Check input data.")
+
 dataset["MEAN_ANOMALY"] = dataset["MEAN_ANOMALY"] * np.pi / 180
 dataset["EPOCH"] = epoch(dataset["EPOCH"])
 dataset["tuples"] = [(0, 0, 0) for i in range(len(dataset.index))]
@@ -96,7 +95,6 @@ for index, row in dataset.iterrows():
 
 dataset["rotation_matrix"] = matrices
 
-
 """ MAKING GROUPS """
 linspace = np.linspace(
     min(dataset["SEMIMAJOR_AXIS"]), max(dataset["SEMIMAJOR_AXIS"]), num=100
@@ -113,8 +111,10 @@ subgroups_ = subgroups.copy()
 subgroups_["groups"] = bins_sub
 
 dataset = subgroups_
-# dataset = subgroups_.loc[subgroups_["groups"] != 19] ## ignore this comment
+if dataset.empty:
+    raise ValueError("Dataset is empty after subgroup filtering. Check input data.")
 
+# Handle small or invalid groups
 small_group = dataset.groupby("groups")["groups"].count() != 1
 delete = list(small_group.loc[small_group == False].index)
 
@@ -129,9 +129,12 @@ for i in set(debris_groups["groups"]):
 delete.extend(no_debris)
 
 dataset = dataset[~dataset["groups"].isin(delete)]
+if dataset.empty:
+    raise ValueError("Dataset is empty after removing groups with no debris.")
+
 group_amount = dataset.groupby("groups")["groups"].count()
 
-""" Making data floders of all groups """
+""" Making data folders for all groups """
 all_groups = []
 for i in group_amount.index:
     all_groups.append(i)
@@ -141,12 +144,15 @@ for i in group_amount.index:
 """ Dividing the dataset up debris and satellites """
 dataset = dataset.copy()
 
-# only keep payloads in the dataset
+# Only keep payloads in the dataset
 dataset = dataset[dataset["OBJECT_TYPE"] == "PAYLOAD"]
 
 bool_list = [0 if j == "PAYLOAD" else 1 for _, j in dataset["OBJECT_TYPE"].items()]
 dataset["object_bool"] = bool_list
 
 """ FINAL DATASET """
+if dataset.empty:
+    raise ValueError("Final dataset is empty after filtering for payloads. Check input data.")
+
 print("DATA CLEAN fully OBJECT Columns:", dataset.columns.tolist())
 data_array = dataset.to_numpy()

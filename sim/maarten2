@@ -1,0 +1,231 @@
+import sys
+import numpy as np
+from tqdm import tqdm
+import csv
+import random
+import matplotlib.pyplot as plt
+from model import *
+from view import View
+from data_cleaning import all_groups, data_array
+
+# Dynamically set the dataset in data_cleaning.py
+def set_dataset(dataset_path):
+    """
+    Dynamically modify the dataset path in data_cleaning.py.
+    """
+    with open("data_cleaning.py", "r") as file:
+        lines = file.readlines()
+
+    # Replace the dataset line with the specified file path
+    for i, line in enumerate(lines):
+        if line.startswith("dataset = pd.read_csv"):
+            lines[i] = f'dataset = pd.read_csv("{dataset_path}")\n'
+
+    # Write the updated file
+    with open("data_cleaning.py", "w") as file:
+        file.writelines(lines)
+
+def fast_arr(objects: np.ndarray):
+    """
+    Prepare fast array for usage with Numba.
+    """
+    return np.array(
+        [[object[0], object[4], object[6], object[13], 0, 0, 0] for object in objects]
+    )
+
+def run_sim(
+    objects: np.ndarray,
+    group: int,
+    draw: bool,
+    margin: float,
+    endtime: float,
+    timestep: float,
+    epoch: float,
+    probability: float,
+    percentage: float,
+    frequency_new_debris: int,
+    debris_start_time: float,
+) -> tuple[list, list, list]:
+    """
+    Run the simulation by calculating the position of the objects, checking
+    for collisions and handling the collisions.
+
+    Returns a tuple of simulation parameters, collision data, and collision times.
+    """
+    objects = objects[0:99]
+    initialize_positions(objects, epoch)
+    objects_fast = fast_arr(objects)
+    matrices = np.array([object[11] for object in objects])
+
+    if draw:
+        view = View(objects_fast)
+
+    parameters, collisions, collision_times = [], [], []
+
+    for time in tqdm(
+        range(int(epoch), int(epoch + endtime), timestep),
+        ncols=100,
+        desc=f"group: {group}",
+    ):
+        calc_all_positions(objects_fast, matrices, time)
+
+        collision_pairs = check_collisions_optimized(objects_fast, margin)
+        if collision_pairs:
+            for collided_objects in collision_pairs:
+                _, _, object1, object2 = collided_objects
+                collisions.append([object1, object2, time])
+                collision_times.append(time)
+
+        # Only start adding debris after the specified start time
+        if (
+            time >= debris_start_time
+            and frequency_new_debris is not None
+            and (time - epoch) % (frequency_new_debris * timestep) == 0
+        ):
+            objects_fast, matrices, _ = random_debris(
+                objects_fast, matrices, time, percentage
+            )
+
+            if draw:
+                view.make_new_drawables(objects_fast)
+
+        if draw:
+            view.draw(objects_fast, time - epoch)
+
+    parameters.append(
+        [objects[0][12], epoch, endtime, timestep, probability, percentage]
+    )
+
+    return parameters, collisions, collision_times
+
+def plot_combined_phase_transitions(results, debris_start_time):
+    """
+    Plot combined phase transition graphs for all datasets.
+    """
+    plt.figure(figsize=(12, 8))
+
+    for dataset_name, avg_times, avg_collisions, std_collisions in results:
+        # Plot average cumulative collisions with shading for STD
+        plt.plot(avg_times, avg_collisions, label=f"{dataset_name} (Avg)")
+        plt.fill_between(
+            avg_times,
+            np.array(avg_collisions) - np.array(std_collisions),
+            np.array(avg_collisions) + np.array(std_collisions),
+            alpha=0.3,
+        )
+
+    # Mark the debris addition time
+    plt.axvline(x=debris_start_time, color="gray", linestyle="--", label="Debris Added")
+    plt.text(
+        debris_start_time,
+        plt.ylim()[1] * 0.8,
+        f"Debris Added at {int(debris_start_time)}s",
+        color="gray",
+        fontsize=10,
+        ha="center",
+    )
+
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Number of Collisions")
+    plt.title("Phase Transition: Collision Dynamics Across Datasets (Averaged)")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("combined_phase_transition_avg.png")
+    plt.show()
+
+if __name__ == "__main__":
+    datasets = [
+        "../data/satellites.csv",
+        "../data/uniform_generated.csv",
+        "../data/normal_generated.csv",
+        "../data/exponential_generated.csv",
+    ]
+
+    dataset_names = ["Satellites", "Uniform", "Normal", "Exponential"]
+    debris_start_time = 1675269600.0  # Example start time for debris addition
+
+    results = []
+    num_runs = 10  # Number of runs to average over
+
+    for dataset_path, dataset_name in zip(datasets, dataset_names):
+        print(f"\nRunning simulations for dataset: {dataset_name}")
+        set_dataset(dataset_path)
+
+        # Reload data_cleaning to use the updated dataset
+        from importlib import reload
+        import data_cleaning
+        reload(data_cleaning)
+        all_groups = data_cleaning.all_groups
+        data_array = data_cleaning.data_array
+
+        if len(all_groups) == 0:
+            print(f"No valid groups found in dataset: {dataset_name}. Skipping...")
+            continue
+
+        if len(sys.argv) > 1 and int(sys.argv[1]) in all_groups:
+            group = int(sys.argv[1])
+        else:
+            print("\nGive a valid number of the orbit you want to evaluate")
+            sys.exit()
+
+        # Select given group.
+        group_selection = data_array[:, 12] == group
+        data_array_group = data_array[group_selection]
+        objects = data_array_group
+
+        # Activate / don't activate the view.
+        draw = False
+        if len(sys.argv) > 2 and sys.argv[2] == "view":
+            draw = True
+
+        # Collect multiple runs for averaging
+        all_collision_counts = []
+        all_times = []
+
+        for run in range(num_runs):
+            print(f"Starting simulation run {run + 1}/{num_runs}")
+            parameters, collisions, collision_times = run_sim(
+                objects,
+                group,
+                draw,
+                margin=15000,
+                endtime=200_000,
+                timestep=5,
+                epoch=1675209600.0,
+                probability=0.5,
+                percentage=0,
+                frequency_new_debris=40,
+                debris_start_time=debris_start_time,
+            )
+
+            # Prepare data for averaging
+            times = sorted(set(collision_times))
+            collision_counts = [collision_times.count(t) for t in times]
+
+            all_collision_counts.append(np.cumsum(collision_counts))
+            all_times.append(times)
+
+        # Align all time series by interpolating to a common time grid
+        common_time_grid = np.linspace(
+            debris_start_time - 50_000,
+            max(max(t) for t in all_times),
+            num=600
+        )
+
+        interpolated_collision_counts = []
+        for run_counts, run_times in zip(all_collision_counts, all_times):
+            interpolated_collision_counts.append(
+                np.interp(common_time_grid, run_times, run_counts, left=0)
+            )
+
+        # Calculate averages and standard deviations
+        avg_collisions = np.mean(interpolated_collision_counts, axis=0)
+        std_collisions = np.std(interpolated_collision_counts, axis=0)
+
+        # Store results for combined plot
+        results.append((dataset_name, common_time_grid, avg_collisions, std_collisions))
+
+    # Plot combined phase transitions with averages and STDs
+    plot_combined_phase_transitions(results, debris_start_time)
+
+    print("\nCombined phase transition graph with averages generated.")

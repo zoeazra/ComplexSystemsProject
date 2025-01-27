@@ -4,7 +4,7 @@ import datetime
 
 # Define the file name and the number of rows
 output_file = "uniform_generated.csv"
-number_of_rows = 1000000
+number_of_rows = 50000
 
 # Define column headers
 headers = [
