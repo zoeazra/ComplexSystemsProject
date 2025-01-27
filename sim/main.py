@@ -76,16 +76,29 @@ def run_sim(
     # if draw:
     #     view = View(objects)
 
-    objects = objects[0 : INI_NUMBERS-1] # pick up the first INI_NUMBERS objects from the real data
+    #objects = objects[0 : INI_NUMBERS-1] # pick up the first INI_NUMBERS objects from the real data
+    INI_NUMBERS = len(objects)
+    INI_DEBRIS = 30
     initialize_positions(objects, epoch)
     objects_fast = fast_arr(objects)
     matrices = np.array([object[11] for object in objects])
+
+    print(f"Group {group} process has object_fast shape: {objects_fast.shape}, matrices shape: {matrices.shape}")
 
     if draw:
         view = View(objects_fast)
 
     parameters, collisions, added_debris = [], [], []
     current_time = tf.strftime("%Y%m%d-%H%M%S")
+
+    # initialize the debris
+    for _ in range(INI_DEBRIS):
+        objects_fast, matrices, new_debris_num = random_debris(
+            objects_fast, matrices, epoch, percentage
+        )
+        added_debris.append([new_debris_num, epoch])
+
+    post_collision = False
 
     for time in tqdm(
         range(int(epoch), int(epoch + endtime), timestep),
@@ -106,8 +119,16 @@ def run_sim(
         total_debris_generated_this_epoch = 0
         falldown_number = 0
 
+        # when the time is greater than the epoch + 0.5 * endtime, launch 10 satellites frequently
+        if time > epoch +  0.5 * endtime and (time % (frequency_new_debris * timestep)) == 0:
+            print(f"launching 10 satellite at time {time}")
+            for _ in range(10):
+                objects_fast, matrices = launch_satellites(
+                    objects_fast, matrices, time
+                )
+        
         if len(collision_pairs) != 0:
-            
+            post_collision = True
             for collided_objects in collision_pairs:
                 index1, index2, object1, object2 = collided_objects[0], collided_objects[1], collided_objects[2], collided_objects[3]
                 
@@ -130,22 +151,26 @@ def run_sim(
             #print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)}, number of debris generated: {total_debris_generated_this_epoch}\n")
             
         if (
+            post_collision and
             frequency_new_debris != None
             and (time - epoch) % (frequency_new_debris * timestep) == 0
-        ):  # Add new debris or satellites at timesteps indicated by frequency_new_debris.
-            
-            objects_fast, matrices, falldown_number = debris_falldown(objects_fast, matrices)
+        ):
+            post_collision = False
+            print(f"post_collision object_fast shape: {objects_fast.shape}, matrices shape: {matrices.shape}")
+            objects_fast, matrices, falldown_number = debris_falldown(objects_fast, matrices, INI_NUMBERS + INI_DEBRIS)
             if falldown_number != 0:
                 print(f"Debris_falldown detected, in epoch {time}, number of debrits away: {falldown_number} \n")
+            else:
+                print(f"No Debris_falldown, in epoch {time} \n")
 
             # objects_fast, matrices = launch_satellites(
             #     objects_fast, matrices, time
             # )
 
-            objects_fast, matrices, new_debris = random_debris(
-                objects_fast, matrices, time, percentage
-            )
-            added_debris.append([new_debris, time])
+            # objects_fast, matrices, new_debris = random_debris(
+            #     objects_fast, matrices, time, percentage
+            # )
+            # added_debris.append([new_debris, time])
 
             if draw:
                 view.make_new_drawables(objects_fast)

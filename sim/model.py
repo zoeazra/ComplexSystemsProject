@@ -14,9 +14,6 @@ from scipy.spatial.transform import Rotation
 # standard gravitational parameter = G * M
 mu = 6.6743 * 10**-11 * 5.972 * 10**24  # m**3 * s**-2
 
-# define a variable of the length of the initial objects
-INI_NUMBERS = 49
-
 def initialize_positions(objects: np.ndarray, epoch=1675209600.0):
     """
     Initialize all objects in the given array to the same given epoch by
@@ -320,7 +317,7 @@ def number_of_debris_this_pair(object1: np.ndarray, object2: np.ndarray) -> int:
     rel_velocity = np.abs(v1 - v2)
     if rel_velocity == 0:
         rel_velocity = 1e-6
-    num_debris = max(2, min(int(rel_velocity // 500), 5))  # Debris generated per collision. Check again the factor of 500. Clip in order to keep it in a normal range.
+    num_debris = max(4, min(int(rel_velocity // 500), 5))  # Debris generated per collision. Check again the factor of 500. Clip in order to keep it in a normal range.
     # print(f"Number of debris generated per collision: {num_debris}")
     return num_debris
 
@@ -336,8 +333,10 @@ def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin
 
     Returns an array of the same form as above with the adjusted values.
     """
-    # num_debris = 2 # Fixed number of debris generated per collision
-    num_debris = number_of_debris_this_pair(object1, object2)
+    # random number from 1 to 4 of debris generated per collision
+    num_debris = np.random.randint(1, 4)
+
+    # num_debris = number_of_debris_this_pair(object1, object2)
 
     new_debris = list()
     g = np.random.rand()
@@ -362,25 +361,31 @@ def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin
 
     return new_debris
 
-def debris_falldown(objects: np.ndarray, rotation_matrix: np.ndarray, initial_numbers = INI_NUMBERS):
+def debris_falldown(objects: np.ndarray, rotation_matrix: np.ndarray, initial_numbers: int) -> tuple[np.ndarray, np.ndarray, int]:
     """
     Simulate the debris falling down to the Earth.
     """
 
     # randomly pick up debris from object[initial_numbers:] to remove them, b the uniform distribution
     # sync the rotation_matrix with the objects
-    if len(objects) - initial_numbers < 100:
+    if len(objects) - initial_numbers < 2:
+        print(f"There is less 2 object could be fall down, objects length: {len(objects)}, and initial_numbers: {initial_numbers} \n")
         return objects, rotation_matrix, 0
 
     # numbers_falldown follow the normal distribution from 0 to len(objects) - initial_numbers
     # the expect is the half of the len(objects) - initial_numbers, and the std is the half of the expect
-    numbers_falldown = int(np.random.normal((len(objects) - initial_numbers) / 10, (len(objects) - initial_numbers) / 20))
-    
-    if numbers_falldown <= 0 or numbers_falldown >= len(objects) - initial_numbers:
+    numbers_falldown = min(5, int(np.random.normal(len(objects) / 20, len(objects) / 40)))
+
+    if numbers_falldown <= 0:
         return objects, rotation_matrix, 0
 
+    if numbers_falldown >= len(objects) - initial_numbers:
+        numbers_falldown = len(objects) - initial_numbers
+        if numbers_falldown > 5:
+            numbers_falldown = 5
+
     # make sure the numbers_falldown is graeter than 0 and less than len(objects) - initial_numbers
-    assert numbers_falldown > 0 and numbers_falldown < len(objects) - initial_numbers
+    assert numbers_falldown >= 0 and numbers_falldown <= len(objects) - initial_numbers
 
     # just remove the debris from index initial_numbers to initial_numbers + numbers_falldown
     objects = np.delete(objects, np.arange(initial_numbers, initial_numbers + numbers_falldown), axis=0)
