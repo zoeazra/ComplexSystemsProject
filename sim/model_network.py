@@ -1,7 +1,7 @@
 import numpy as np
 from numba import jit
 import random
-import file_sys
+import file_system.file_sys as file_sys
 from view import View
 import time as tf
 from tqdm import tqdm

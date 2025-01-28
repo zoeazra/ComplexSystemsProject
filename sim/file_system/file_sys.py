@@ -2,7 +2,7 @@ import os
 import re
 import time
 
-SIMU_RESULT_PATH = '../results/'
+SIMU_RESULT_PATH = '../../results/'
 
 COLLISION_TEPMLATE = ("collision detected, in epoch {time}, number of collisions: {collision_number}, number of debris generated: {debris_number}, number of debris fall down: {falldn_number}\n")
 COLLISION_PATTERN = r"collision detected, in epoch (\d+\.\d+), number of collisions: (\d+), number of debris generated: (\d+)\n"
