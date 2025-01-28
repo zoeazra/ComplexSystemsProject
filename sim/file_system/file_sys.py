@@ -7,19 +7,35 @@ SIMU_RESULT_PATH = '../../results/'
 COLLISION_TEPMLATE = ("collision detected, in epoch {time}, number of collisions: {collision_number}, number of debris generated: {debris_number}, number of debris fall down: {falldn_number}\n")
 COLLISION_PATTERN = r"collision detected, in epoch (\d+\.\d+), number of collisions: (\d+), number of debris generated: (\d+)\n"
 
-def write(epoch, timestamp, collision_number, debris_number, falldn_number, filepath, prefix="NOLAUNCH"):
-    # Get the current time
-    # current_time = time.strftime("%Y%m%d-%H%M%S")
-    
-    filename = f"{prefix}_Collision_{timestamp}.log"
-    full_path = os.path.join(filepath, filename)
-    
-    content = COLLISION_TEPMLATE.format(time=epoch, collision_number=collision_number, debris_number=debris_number, falldn_number=falldn_number)
-    
+STATIC_NETWORK_TEMPLATE = ("ER Nodes = {N}, Initial probability = {probability}, GC Size = {gc_size}, Avg Degree = {avg_degree:.2f}\n")
+STATIC_NETWORK_PATTERN = r"ER Nodes = (\d+), Initial probability = (\d+\.\d+), GC Size = (\d+), Avg Degree = (\d+\.\d+)\n"
+
+DYNAMIC_NETWORK_TEMPLATE = ("Epoch = {iteration}, ER Nodes = {N}, Initial probability = {probability}, GC Size = {gc_size}, Avg Degree = {avg_degree:.2f}\n")
+DYNAMIC_NETWORK_PATTERN = r"Epoch = (\d+), ER Nodes = (\d+), GC Size = (\d+), Avg Degree = (\d+\.\d+)\n"
+
+def write(epoch, timestamp, collision_number, debris_number, falldn_number, N, probability, gc_size, avg_degree, filepath, prefix="NOLAUNCH", model="static"):
+    switcher = {
+        "static": STATIC_NETWORK_TEMPLATE,
+        "dynamic": DYNAMIC_NETWORK_TEMPLATE,
+        "collision": COLLISION_TEPMLATE
+    }
+    template = switcher.get(model, "Invalid model")
+    assert template != "Invalid model", "Invalid model"
+
+    filename = f"{model}_{prefix}_{timestamp}.log"
     # make sure the file exists
     if not os.path.exists(filepath):
         os.makedirs(filepath)
-
+    full_path = os.path.join(filepath, filename)
+    
+    content = ""
+    if model == "collision":
+        content = template.format(time=epoch, collision_number=collision_number, debris_number=debris_number, falldn_number=falldn_number)
+    elif model == "static":
+        content = template.format(N=N, probability=probability, gc_size=gc_size, avg_degree=avg_degree)
+    elif model == "dynamic":
+        content = template.format(iteration=epoch, N=N, probability=probability, gc_size=gc_size, avg_degree=avg_degree)
+        
     with open(full_path, 'a') as file:
         file.write(content)
 
