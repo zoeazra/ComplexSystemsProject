@@ -8,14 +8,160 @@ ensures that the these functions will be compiled in C code.
 
 import numpy as np
 from numba import jit
-
+import random
+import file_system.file_sys as file_sys
+from view import View
+import time as tf
+from tqdm import tqdm
+import numpy as np
+import sys
 from scipy.spatial.transform import Rotation
+from numba import njit, prange
 
 # standard gravitational parameter = G * M
 mu = 6.6743 * 10**-11 * 5.972 * 10**24  # m**3 * s**-2
 
 # define a variable of the length of the initial objects
 INI_NUMBERS = 49
+
+def fast_arr(objects: np.ndarray):
+    """
+    Prepare fast array for usage with Numba.
+
+    Returns array of the form:
+      -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL'  'pos_x', pos_y', 'pos_z']
+    """
+    return np.array(
+        [[object[0], object[4], object[6], object[13], 0, 0, 0] for object in objects]
+    )
+
+def run_sim(
+    objects: np.ndarray,
+    group: int,
+    draw: bool,
+    margin: float,
+    endtime: float,
+    timestep: float,
+    epoch: float,
+    probability: float,
+    percentage: float,
+    frequency_new_debris: int,
+) -> tuple[list, list, list]:
+    """
+    Run the simulation by calculating the position of the objects, checking
+    for collisions and handling the collisions.
+
+    objects: array of objects in the following form:
+    -> ['EPOCH', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER',
+       'MEAN_ANOMALY', 'NORAD_CAT_ID', 'SEMIMAJOR_AXIS', 'OBJECT_TYPE',
+       'RCS_SIZE', 'LAUNCH_DATE', 'positions', 'rotation_matrix', 'groups', 'object_bool'].
+    group: number of the orbit group.
+    draw: if true an animation will be started in the browser.
+    margin: threshold of when two objects are colliding.
+    endtime: end time of the simulation in seconds.
+    timestep: size of the time steps in seconds.
+    epoch: Julian date in seconds of the start of the simulation.
+    probability: The probablity of adding new debris per call of the function
+    "random_debris".
+    percentage: percentage of the number of existing debris to add every call
+    of "random_debris".
+    frequency_new_debris: frequency of calling the function "random_debris".
+    If this value is 100 and the timestep is 100, "random_debris" will be called
+    every 100x100 seconds.
+
+    Returns a tuple of the simulation parameters, new debris and collision data.
+    """
+
+    # if draw:
+    #     view = View(objects)
+
+    objects = objects[0 : INI_NUMBERS-1] # pick up the first INI_NUMBERS objects from the real data
+    initialize_positions(objects, epoch)
+    objects_fast = fast_arr(objects)
+    matrices = np.array([object[11] for object in objects])
+
+    if draw:
+        view = View(objects_fast)
+
+    parameters, collisions, added_debris = [], [], []
+    current_time = tf.strftime("%Y%m%d-%H%M%S")
+
+    for time in tqdm(
+        range(int(epoch), int(epoch + endtime), timestep),
+        ncols=100,
+        desc=f"group: {group}",  # tqdm for the progress bar.
+    ):  
+    #for time in range(int(epoch), int(epoch + endtime), timestep):
+        #print(f"\nGroup {group} process running at time {time}.")
+        calc_all_positions(objects_fast, matrices, time)
+
+        if len(objects_fast) > 500000000:
+            print(f"\nGroup {group} process killed.")
+            sys.exit()
+
+        # issue 1, make a list of all the objects that are colliding, not just the first collision
+        # issue 2, should update the matrices for the new debris
+        collision_pairs = check_collisions_optimized(objects_fast, margin)
+        total_debris_generated_this_epoch = 0
+        falldown_number = 0
+
+        if len(collision_pairs) != 0:
+            
+            for collided_objects in collision_pairs:
+                index1, index2, object1, object2 = collided_objects[0], collided_objects[1], collided_objects[2], collided_objects[3]
+                
+                # Compute new debris
+                new_debris = generate_debris_with_margin(object1, object2, margin)
+                total_debris_generated_this_epoch += len(new_debris)
+
+                # Add new debris to the total objects array
+                objects_fast = np.concatenate((objects_fast, new_debris), axis=0)
+
+                # update the rotation matrices for the new debris
+                for _ in new_debris:
+                    new_matrix = matrices[random.randint(0, len(matrices) - 1)]  
+                    matrices = np.concatenate((matrices, [new_matrix]), axis=0)
+
+                # Save the collision data
+                collisions.append([object1, object2, time])
+                added_debris.append([new_debris, time])
+
+            #print(f"collision detected, in epoch {time}, number of collisions: {len(collision_pairs)}, number of debris generated: {total_debris_generated_this_epoch}\n")
+            
+        if (
+            frequency_new_debris != None
+            and (time - epoch) % (frequency_new_debris * timestep) == 0
+        ):  # Add new debris or satellites at timesteps indicated by frequency_new_debris.
+            
+            objects_fast, matrices, falldown_number = debris_falldown(objects_fast, matrices)
+            if falldown_number != 0:
+                print(f"Debris_falldown detected, in epoch {time}, number of debrits away: {falldown_number} \n")
+
+            # objects_fast, matrices = launch_satellites(
+            #     objects_fast, matrices, time
+            # )
+
+            objects_fast, matrices, new_debris = random_debris(
+                objects_fast, matrices, time, percentage
+            )
+            added_debris.append([new_debris, time])
+
+            if draw:
+                view.make_new_drawables(objects_fast)
+        
+        if len(collision_pairs) != 0 or falldown_number != 0:
+            file_sys.write(time, current_time, len(collision_pairs), total_debris_generated_this_epoch, falldown_number, file_sys.SIMU_RESULT_PATH, f"Group_{group}")
+        
+        if draw:
+            if (time - epoch) % (frequency_new_debris * timestep) == 0:
+                view.make_new_drawables(objects_fast)
+            view.draw(objects_fast, time - epoch)
+
+    parameters.append(
+        [objects[0][12], epoch, endtime, timestep, probability, percentage]
+    )
+
+    return parameters, collisions, added_debris
 
 def initialize_positions(objects: np.ndarray, epoch=1675209600.0):
     """
@@ -324,41 +470,50 @@ def number_of_debris_this_pair(object1: np.ndarray, object2: np.ndarray) -> int:
     # print(f"Number of debris generated per collision: {num_debris}")
     return num_debris
 
+@jit(nopython=True, parallel=True)
 def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin: float) -> np.ndarray:
     """
-    Add a new debris at the position of the objects involved with a adjusted
-    anomaly and semimajor-axis.
+    Generate debris after collision with adjusted parameters.
 
-    object_involved: np.array of the object to be evaluated and has to be in the
-    following form:
-        -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATTELITE/DEBRIS_BOOL',
-    'pos_x', pos_y', 'pos_z'].
+    Parameters:
+        object1: np.ndarray
+            Array representing the first object in collision:
+            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
+        object2: np.ndarray
+            Array representing the second object in collision:
+            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
+        margin: float
+            Margin for positional adjustments.
 
-    Returns an array of the same form as above with the adjusted values.
+    Returns:
+        np.ndarray
+            Array of new debris generated:
+            [['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']]
     """
-    # num_debris = 2 # Fixed number of debris generated per collision
-    num_debris = number_of_debris_this_pair(object1, object2)
+    num_debris = 2 # Fixed number of debris generated per collision
+    # num_debris = number_of_debris_this_pair(object1, object2)
 
-    new_debris = list()
-    g = np.random.rand()
+    # Preallocate array for debris with explicit types: [int, float, float, int, float, float, float]
+    new_debris = np.zeros((num_debris, 7), dtype=np.float64)
+
+    # Randomize new parameters for debris
+    g = np.random.rand()  # Random number for semimajor-axis adjustment
     new_semi_major_axis = object1[2] + ((g * 200) - 100)
-
+    
+    # Adjust mean anomaly
     new_mean_anomaly = object1[1] + 180
     if new_mean_anomaly > 360:
         new_mean_anomaly -= 360
 
-    for i in range(num_debris):
-        new_debris.append(
-            [
-                object1[0],
-                new_mean_anomaly,
-                new_semi_major_axis,
-                1,
-                object1[4] + np.random.uniform(margin, 2*margin),
-                object1[5] + np.random.uniform(margin, 2*margin),
-                object1[6] + np.random.uniform(margin, 2*margin),
-            ]
-        )
+    # Parallel loop to initialize debris
+    for i in prange(num_debris):
+        new_debris[i, 0] = object1[0]  # EPOCH (int)
+        new_debris[i, 1] = new_mean_anomaly  # MEAN_ANOMALY (float)
+        new_debris[i, 2] = new_semi_major_axis  # SEMIMAJOR_AXIS (float)
+        new_debris[i, 3] = 1  # SATELLITE/DEBRIS_BOOL (int)
+        new_debris[i, 4] = object1[4] + np.random.uniform(margin, 2 * margin)  # pos_x (float)
+        new_debris[i, 5] = object1[5] + np.random.uniform(margin, 2 * margin)  # pos_y (float)
+        new_debris[i, 6] = object1[6] + np.random.uniform(margin, 2 * margin)  # pos_z (float)
 
     return new_debris
 
