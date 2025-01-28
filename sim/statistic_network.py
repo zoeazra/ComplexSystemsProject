@@ -56,6 +56,7 @@ plt.title("Relationship Between Average Degree (K) and GC Proportion (S)")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
+plt.savefig("./plottings/network_k_S_ph.png")
 plt.show()
 
 # # GC Proportion vs. Initial Probability
