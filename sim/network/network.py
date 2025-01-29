@@ -63,9 +63,13 @@ def satellite_launch(G, nr_sat_launches):
     
 
 # A dynamic network model with time steps
-def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches):
+def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq):
     # current time
     current_time = time.time()
+
+    # Initialize lists to track results
+    avg_degrees = []
+    gc_proportions = []
 
     nodes = list(G.nodes)
 
@@ -73,9 +77,9 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
         # generate collision pairs
         nodes = list(G.nodes)
         
-        if len(G.nodes) > 2000:
+        if len(G.nodes) > 3000:
             print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simluations")
-            return
+            return avg_degrees, gc_proportions
 
         collision_edges = direct_sample_collisions(nodes, P)
         G.add_edges_from(collision_edges)
@@ -86,6 +90,10 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
         avg_degree = np.mean([d for _, d in G.degree()])
         write(t+1, current_time, 0, 0, 0, len(G.nodes), P, gc_size, avg_degree, "../../results", "dynamic", "dynamic")
         
+       # Append results
+        avg_degrees.append(avg_degree)
+        gc_proportions.append(gc_size / len(G.nodes))  # Proportion of GC size relative to N
+
         # generate new fragments
         for u, v in collision_edges:
             for _ in range(new_fragments_per_collision):
@@ -97,13 +105,12 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
         if t % launch_freq == 0:
             satellite_launch(G, nr_sat_launches)
             print(f"In time step {t}, {nr_sat_launches} new satellites were launched, total nodes = {len(G.nodes)} \n")
-        #
-        # plt.figure(figsize=(6, 6))
-        # pos = nx.spring_layout(G)
-        # nx.draw(G, pos, node_size=10, alpha=0.5)
-        # nx.draw_networkx_nodes(G, pos, nodelist=largest_cc, node_color='red', node_size=20)
-        # plt.title(f"Iteration {t+1}: GC Size = {gc_size}, Avg Degree = {avg_degree:.2f}")
-        # plt.show()
+    
+    print("Returning results: avg_degrees and gc_proportions")
+    
+
+    return avg_degrees, gc_proportions
+
 
 if __name__ == "__main__":
 
@@ -116,13 +123,24 @@ if __name__ == "__main__":
     launch_freq = 5 # determines after how many timesteps a satellite is launched
     nr_sat_launches = 2 # number of satellites launched
 
-    # genreate a probability list from 0.001 to 0.0009
-    probabilities = np.linspace(0.0001, 0.0009, 10)
+    # # genreate a probability list from 0.001 to 0.0009
+    # probabilities = np.linspace(0.0001, 0.0009, 10)
     
-    # static data
-    static_network_model(N, probabilities)
+    # # static data
+    # static_network_model(N, probabilities)
     
     # dynamic network over time
-    # for p in probabilities:
+    # Initialize the network
     G = nx.empty_graph(N)
-    dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches)
+    avg_degrees, gc_proportions = dynamic_network_model(
+        G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq)
+
+    # Plot the results
+    plt.figure(figsize=(10, 6))
+    plt.plot(avg_degrees, gc_proportions, marker='o', color='purple', label='GC Proportion')
+    plt.title("Relationship Between Average Degree (K) and GC Proportion (S)")
+    plt.xlabel("Average Degree (K)")
+    plt.ylabel("GC Proportion (S)")
+    plt.grid(True)
+    plt.legend()
+    plt.show()
