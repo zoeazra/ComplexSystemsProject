@@ -71,8 +71,6 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
     avg_degrees = []
     gc_proportions = []
 
-    nodes = list(G.nodes)
-
     for t in range(iterations):
         # generate collision pairs
         nodes = list(G.nodes)
@@ -80,6 +78,8 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
         if len(G.nodes) > 3000:
             print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simluations")
             return avg_degrees, gc_proportions
+        
+        G = nx.empty_graph(len(nodes))
 
         collision_edges = direct_sample_collisions(nodes, P)
         G.add_edges_from(collision_edges)
@@ -100,7 +100,7 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
                 if np.random.rand() < plow:
                     new_node = len(G.nodes)
                     G.add_node(new_node)
-                    print(f"New fragment {new_node} generated from collision between nodes {u} and {v}, total nodes = {len(G.nodes)} \n")
+                    # print(f"New fragment {new_node} generated from collision between nodes {u} and {v}, total nodes = {len(G.nodes)} \n")
 
         if t % launch_freq == 0:
             satellite_launch(G, nr_sat_launches)
