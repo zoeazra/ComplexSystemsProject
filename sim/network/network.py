@@ -27,9 +27,9 @@ def sample_collisions(nodes, P):
     """
     N = len(nodes)
     num_possible_edges = N * (N - 1) // 2  # all the edges possible
-    num_collisions = int(P * num_possible_edges)  # pair of nodes to collide
+    num_collisions = int(P * num_possible_edges)  # determine number of collisions to simulate
 
-    # pick up the collision pairs randomly
+    # pick the collision pairs randomly
     all_edges = list(itertools.combinations(nodes, 2))
     sampled_edges = np.random.choice(len(all_edges), size=num_collisions, replace=False)
     return [all_edges[i] for i in sampled_edges]
@@ -51,20 +51,31 @@ def direct_sample_collisions(nodes, P):
         edges.append((nodes[i], nodes[j]))
     return edges
 
+def satellite_launch(G, nr_sat_launches):
+    """
+    Adds new satellites (nodes) to the graph every launch_freq time steps.
+    """
+    N = len(G.nodes)
+    new_nodes = range(N, N + nr_sat_launches)
+    G.add_nodes_from(new_nodes)
+    
+    return G
+    
+
 # A dynamic network model with time steps
-def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision):
+def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches):
     # current time
     current_time = time.time()
+
+    nodes = list(G.nodes)
 
     for t in range(iterations):
         # generate collision pairs
         nodes = list(G.nodes)
-        if len(nodes) > 30000:
+        
+        if len(G.nodes) > 2000:
             print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simluations")
             return
-
-        # recover the graph but keep the massive debris as the new nodes
-        G = nx.empty_graph(len(nodes))
 
         collision_edges = direct_sample_collisions(nodes, P)
         G.add_edges_from(collision_edges)
@@ -81,10 +92,11 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision):
                 if np.random.rand() < plow:
                     new_node = len(G.nodes)
                     G.add_node(new_node)
-                    print(f"New fragment {new_node} generated from collision between {u} and {v}, total nodes = {len(G.nodes)} \n")
+                    print(f"New fragment {new_node} generated from collision between nodes {u} and {v}, total nodes = {len(G.nodes)} \n")
 
-
-
+        if t % launch_freq == 0:
+            satellite_launch(G, nr_sat_launches)
+            print(f"In time step {t}, {nr_sat_launches} new satellites were launched, total nodes = {len(G.nodes)} \n")
         #
         # plt.figure(figsize=(6, 6))
         # pos = nx.spring_layout(G)
@@ -101,6 +113,8 @@ if __name__ == "__main__":
     plow = 0.01 # probability of generating new fragments
     new_fragments_per_collision = 2  # debris per collision 
     iterations = 100  # number of iterations, time steps
+    launch_freq = 5 # determines after how many timesteps a satellite is launched
+    nr_sat_launches = 2 # number of satellites launched
 
     # genreate a probability list from 0.001 to 0.0009
     probabilities = np.linspace(0.0001, 0.0009, 10)
@@ -109,6 +123,6 @@ if __name__ == "__main__":
     static_network_model(N, probabilities)
     
     # dynamic network over time
-    for p in probabilities:
-        G = nx.empty_graph(N)
-        dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
+    # for p in probabilities:
+    G = nx.empty_graph(N)
+    dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches)
