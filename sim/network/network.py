@@ -70,6 +70,9 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
     # Initialize lists to track results
     avg_degrees = []
     gc_proportions = []
+    cumulative_satellites = 0  # Track the cumulative number of satellites launched
+    satellites_launched = []  # List to store the cumulative satellites launched at each timestep
+
 
     for t in range(iterations):
         # generate collision pairs
@@ -77,7 +80,7 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
         
         if len(G.nodes) > 3000:
             print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simluations")
-            return avg_degrees, gc_proportions
+            return avg_degrees, gc_proportions, satellites_launched
         
         G = nx.empty_graph(len(nodes))
 
@@ -105,11 +108,13 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
         if t % launch_freq == 0:
             satellite_launch(G, nr_sat_launches)
             print(f"In time step {t}, {nr_sat_launches} new satellites were launched, total nodes = {len(G.nodes)} \n")
+            cumulative_satellites += nr_sat_launches  # Update the cumulative count
+        satellites_launched.append(cumulative_satellites)  # Track the count at each timestep    
     
-    print("Returning results: avg_degrees and gc_proportions")
+    print("Returning results: avg_degrees, gc_proportions, and satellites_launched")
     
 
-    return avg_degrees, gc_proportions
+    return avg_degrees, gc_proportions, satellites_launched
 
 
 if __name__ == "__main__":
@@ -132,9 +137,10 @@ if __name__ == "__main__":
     # dynamic network over time
     # Initialize the network
     G = nx.empty_graph(N)
-    avg_degrees, gc_proportions = dynamic_network_model(
+    avg_degrees, gc_proportions, satellites_launched = dynamic_network_model(
         G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq)
 
+    print(len(satellites_launched))
     # Plot the results
     plt.figure(figsize=(10, 6))
     plt.plot(avg_degrees, gc_proportions, marker='o', color='purple', label='GC Proportion')
