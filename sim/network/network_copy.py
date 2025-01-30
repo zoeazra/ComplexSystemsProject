@@ -53,26 +53,26 @@ def direct_sample_collisions(nodes, P):
     return edges
 
 # A dynamic network model with time steps
-def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, P_remove_debris, avg_degree_log):
-    current_time = time.time()
+def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, P_remove_debris):
+    avg_degree_log = []
+    gc_size_log = []
     
     for t in range(iterations):
         nodes = list(G.nodes)
         if len(nodes) > 30000:
-            print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simulations")
-            return
+            return avg_degree_log, gc_size_log
 
         G = nx.empty_graph(len(nodes))
         collision_edges = direct_sample_collisions(nodes, P)
         G.add_edges_from(collision_edges)
 
         largest_cc = max(nx.connected_components(G), key=len)
-        gc_size = len(largest_cc)
+        gc_size = len(largest_cc) / N  # Normalize GC size by N
         avg_degree = np.mean([d for _, d in G.degree()])
-        
-        write(t+1, current_time, 0, 0, 0, len(G.nodes), P, gc_size, avg_degree, "../../results", "dynamic", "dynamic")
-        avg_degree_log.append((P_remove_debris, t+1, avg_degree))
-        
+
+        avg_degree_log.append(avg_degree)
+        gc_size_log.append(gc_size)
+
         for u, v in collision_edges:
             for _ in range(new_fragments_per_collision):
                 if np.random.rand() < plow:
@@ -87,31 +87,44 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, P
             ]
             G.remove_nodes_from(nodes_to_remove)
 
+    return avg_degree_log, gc_size_log
 
+# Set parameters
+N = 1000  # Initial number of nodes
+P = 0.0008  # Collision probability
+plow = 0.01  # Probability of generating new fragments
+new_fragments_per_collision = 2  # Debris per collision
+iterations = 100  # Number of time steps
+num_runs = 10  # Number of independent runs
 
-if __name__ == "__main__":
-    N = 1000
-    P = 0.0008
-    plow = 0.01
-    new_fragments_per_collision = 2
-    iterations = 100
-    probabilities = np.linspace(0.001, 0.009, 10)
-    avg_degree_log = []
-    
+# Different debris removal probabilities
+probabilities = [0.005]
+
+# Store all (K, S) points across runs
+all_K = []
+all_S = []
+
+for _ in range(num_runs):
     for p in probabilities:
         G = nx.empty_graph(N)
-        dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, p, avg_degree_log)
-    
-    avg_degree_log = np.array(avg_degree_log)
-    P_values = avg_degree_log[:, 0]
-    epochs = avg_degree_log[:, 1]
-    avg_degrees = avg_degree_log[:, 2]
-    
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(P_values, epochs, avg_degrees, c=avg_degrees, cmap='viridis')
-    ax.set_xlabel('Debris Removal Probability')
-    ax.set_ylabel('Epoch')
-    ax.set_zlabel('Average Degree')
-    ax.set_title('3D Plot of Debris Removal Probability vs Epoch vs Average Degree')
-    plt.show()
+        avg_degree_log, gc_size_log = dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, p)
+        
+        # Collect (K, S) points for each time step
+        all_K.extend(avg_degree_log)
+        all_S.extend(gc_size_log)
+
+# Sort by K for a smooth curve
+sorted_indices = np.argsort(all_K)
+K_sorted = np.array(all_K)[sorted_indices]
+S_sorted = np.array(all_S)[sorted_indices]
+
+# Plot GC proportion vs. Average Degree
+plt.figure(figsize=(10, 6))
+plt.plot(K_sorted, S_sorted, marker='o', color='purple', linestyle='-', label='GC Proportion')
+plt.title("Relationship Between Average Degree (K) and GC Proportion (S)")
+plt.xlabel("Average Degree (K)")
+plt.ylabel("GC Proportion (S)")
+plt.grid(True)
+plt.legend()
+plt.show()
+ 
