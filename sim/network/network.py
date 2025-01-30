@@ -117,36 +117,36 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
     return avg_degrees, gc_proportions, satellites_launched
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    # initial parameters
-    N = 1000  # nodes
-    P = 0.0008  # collision probability
-    plow = 0.01 # probability of generating new fragments
-    new_fragments_per_collision = 2  # debris per collision 
-    iterations = 100  # number of iterations, time steps
-    launch_freq = 5 # determines after how many timesteps a satellite is launched
-    nr_sat_launches = 2 # number of satellites launched
+#     # initial parameters
+#     N = 1000  # nodes
+#     P = 0.0008  # collision probability
+#     plow = 0.01 # probability of generating new fragments
+#     new_fragments_per_collision = 2  # debris per collision 
+#     iterations = 100  # number of iterations, time steps
+#     launch_freq = 5 # determines after how many timesteps a satellite is launched
+#     nr_sat_launches = 2 # number of satellites launched
 
-    # # genreate a probability list from 0.001 to 0.0009
-    # probabilities = np.linspace(0.0001, 0.0009, 10)
+#     # # genreate a probability list from 0.001 to 0.0009
+#     # probabilities = np.linspace(0.0001, 0.0009, 10)
     
-    # # static data
-    # static_network_model(N, probabilities)
+#     # # static data
+#     # static_network_model(N, probabilities)
     
-    # dynamic network over time
-    # Initialize the network
-    G = nx.empty_graph(N)
-    avg_degrees, gc_proportions, satellites_launched = dynamic_network_model(
-        G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq)
+#     # dynamic network over time
+#     # Initialize the network
+#     G = nx.empty_graph(N)
+#     avg_degrees, gc_proportions, satellites_launched = dynamic_network_model(
+#         G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq)
 
-    print(len(satellites_launched))
-    # Plot the results
-    plt.figure(figsize=(10, 6))
-    plt.plot(avg_degrees, gc_proportions, marker='o', color='purple', label='GC Proportion')
-    plt.title("Relationship Between Average Degree (K) and GC Proportion (S)")
-    plt.xlabel("Average Degree (K)")
-    plt.ylabel("GC Proportion (S)")
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+#     print(len(satellites_launched))
+#     # Plot the results
+#     plt.figure(figsize=(10, 6))
+#     plt.plot(avg_degrees, gc_proportions, marker='o', color='purple', label='GC Proportion')
+#     plt.title("Relationship Between Average Degree (K) and GC Proportion (S)")
+#     plt.xlabel("Average Degree (K)")
+#     plt.ylabel("GC Proportion (S)")
+#     plt.grid(True)
+#     plt.legend()
+#     plt.show()
