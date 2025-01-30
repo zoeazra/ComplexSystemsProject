@@ -149,8 +149,8 @@ def run_sim(
             if draw:
                 view.make_new_drawables(objects_fast)
         
-        if len(collision_pairs) != 0 or falldown_number != 0:
-            file_sys.write(time, current_time, len(collision_pairs), total_debris_generated_this_epoch, falldown_number, file_sys.SIMU_RESULT_PATH, f"Group_{group}")
+        # if len(collision_pairs) != 0 or falldown_number != 0:
+        #     file_sys.write(time, current_time, len(collision_pairs), total_debris_generated_this_epoch, falldown_number, file_sys.SIMU_RESULT_PATH, f"Group_{group}")
         
         if draw:
             if (time - epoch) % (frequency_new_debris * timestep) == 0:

@@ -13,11 +13,15 @@ STATIC_NETWORK_PATTERN = r"ER Nodes = (\d+), Initial probability = (\d+\.\d+), G
 DYNAMIC_NETWORK_TEMPLATE = ("Epoch = {iteration}, ER Nodes = {N}, Initial probability = {probability}, GC Size = {gc_size}, Avg Degree = {avg_degree:.2f}\n")
 DYNAMIC_NETWORK_PATTERN = r"Epoch = (\d+), ER Nodes = (\d+), GC Size = (\d+), Avg Degree = (\d+\.\d+)\n"
 
-def write(epoch, timestamp, collision_number, debris_number, falldn_number, N, probability, gc_size, avg_degree, filepath, prefix="NOLAUNCH", model="static"):
+REMOVAL_NETWORK_TEMPLATE = ("Epoch = {iteration}, ER Nodes = {N}, removal debris = {rate}, Initial probability = {probability}, GC Size = {gc_size}, Avg Degree = {avg_degree:.2f}, removal rate = {rate}\n")
+REMOVAL_NETWORK_PATTERN = r"Epoch = (\d+), ER Nodes = (\d+), removal debris = (\d+\.\d+), Initial probability = (\d+\.\d+), GC Size = (\d+), Avg Degree = (\d+\.\d+), removal rate = (\d+\.\d+)\n"
+
+def write(epoch, timestamp, collision_number, debris_number, falldn_number, N, removal_rate, probability, gc_size, avg_degree, filepath, prefix="NOLAUNCH", model="static"):
     switcher = {
         "static": STATIC_NETWORK_TEMPLATE,
         "dynamic": DYNAMIC_NETWORK_TEMPLATE,
-        "collision": COLLISION_TEPMLATE
+        "collision": COLLISION_TEPMLATE,
+        "removal": REMOVAL_NETWORK_TEMPLATE
     }
     template = switcher.get(model, "Invalid model")
     assert template != "Invalid model", "Invalid model"
@@ -35,6 +39,8 @@ def write(epoch, timestamp, collision_number, debris_number, falldn_number, N, p
         content = template.format(N=N, probability=probability, gc_size=gc_size, avg_degree=avg_degree)
     elif model == "dynamic":
         content = template.format(iteration=epoch, N=N, probability=probability, gc_size=gc_size, avg_degree=avg_degree)
+    elif model == "removal":
+        content = template.format(iteration=epoch, N=N, rate=removal_rate, probability=probability, gc_size=gc_size, avg_degree=avg_degree)
         
     with open(full_path, 'a') as file:
         file.write(content)

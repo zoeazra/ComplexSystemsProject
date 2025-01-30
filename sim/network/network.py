@@ -19,7 +19,7 @@ def static_network_model(N, probabilities):
         largest_cc2 = max(nx.connected_components(G), key=len)
         avg_degree2 = np.mean([d for _, d in G.degree()])
         gc_size2 = len(largest_cc2)
-        write(0, 0, 0, 0, 0, N, p, gc_size2, avg_degree2, "../../results", "static", "static")
+        write(0, 0, 0, 0, 0, N, 0, p, gc_size2, avg_degree2, "../../results", "static", "static")
 
 def sample_collisions(nodes, P):
     """
@@ -59,7 +59,7 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision):
     for t in range(iterations):
         # generate collision pairs
         nodes = list(G.nodes)
-        if len(nodes) > 30000:
+        if len(nodes) > 12000:
             print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simluations")
             return
 
@@ -73,7 +73,7 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision):
         largest_cc = max(nx.connected_components(G), key=len)
         gc_size = len(largest_cc)
         avg_degree = np.mean([d for _, d in G.degree()])
-        write(t+1, current_time, 0, 0, 0, len(G.nodes), P, gc_size, avg_degree, "../../results", "dynamic", "dynamic")
+        write(t+1, current_time, 0, 0, 0, len(G.nodes), 0, P, gc_size, avg_degree, "../../results", "dynamic", "dynamic")
         
         # generate new fragments
         for u, v in collision_edges:
@@ -84,14 +84,47 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision):
                     print(f"New fragment {new_node} generated from collision between {u} and {v}, total nodes = {len(G.nodes)} \n")
 
 
+def debris_removal_network(G, iterations, P, plow, new_fragments_per_collision, removal_rate):
+    # current time
+    current_time = time.time()
 
-        #
-        # plt.figure(figsize=(6, 6))
-        # pos = nx.spring_layout(G)
-        # nx.draw(G, pos, node_size=10, alpha=0.5)
-        # nx.draw_networkx_nodes(G, pos, nodelist=largest_cc, node_color='red', node_size=20)
-        # plt.title(f"Iteration {t+1}: GC Size = {gc_size}, Avg Degree = {avg_degree:.2f}")
-        # plt.show()
+    for t in range(iterations):
+        # generate collision pairs
+        nodes = list(G.nodes)
+        nodes_number = len(nodes)
+        if nodes_number > 12000:
+            print(f"For initial prob = {P}, the Number of nodes = {len(nodes)}, so stop simluations")
+            return
+        
+        # Just random clean the debris every 10 time steps
+        # After half of the iterations, Clean robot power off.
+        removal_number = 0
+        if t < iterations /2 and t % 10 == 0 and nodes_number > 2 + removal_rate:
+            nodes_number -= removal_rate
+            removal_number = removal_rate
+
+        # recover the graph but keep the massive debris as the new nodes
+        G = nx.empty_graph(nodes_number)
+
+        collision_edges = direct_sample_collisions(nodes, P)
+        G.add_edges_from(collision_edges)
+
+        # GC size and average degree
+        largest_cc = max(nx.connected_components(G), key=len)
+        gc_size = len(largest_cc)
+        if gc_size == 1:
+            gc_size = 0
+
+        avg_degree = np.mean([d for _, d in G.degree()])
+        write(t+1, current_time, 0, 0, 0, len(G.nodes), removal_rate, P, gc_size, avg_degree, "../../results", "debris", "removal")
+        
+        # generate new fragments
+        for u, v in collision_edges:
+            for _ in range(new_fragments_per_collision):
+                if np.random.rand() < plow:
+                    new_node = len(G.nodes)
+                    G.add_node(new_node)
+                    print(f"New fragment {new_node} generated from collision between {u} and {v}, total nodes = {len(G.nodes)} \n")
 
 if __name__ == "__main__":
 
@@ -100,15 +133,23 @@ if __name__ == "__main__":
     P = 0.0008  # collision probability
     plow = 0.01 # probability of generating new fragments
     new_fragments_per_collision = 2  # debris per collision 
-    iterations = 100  # number of iterations, time steps
+    iterations = 2000  # number of iterations, time steps
 
-    # genreate a probability list from 0.001 to 0.0009
-    probabilities = np.linspace(0.0001, 0.0009, 10)
+    # # genreate a probability list from 0.001 to 0.0009
+    # probabilities = np.linspace(0.0001, 0.0009, 10)
     
-    # static data
-    static_network_model(N, probabilities)
+    # # static data
+    # static_network_model(N, probabilities)
     
-    # dynamic network over time
-    for p in probabilities:
+    # # dynamic network over time
+    # for p in probabilities:
+    #     G = nx.empty_graph(N)
+    #     dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
+    
+    # debris removal network
+    P0 = 0.0003
+    rate = N**2 * P0 * plow
+    alpha_list = np.linspace(0, 14, 7)
+    for alpha in alpha_list:
         G = nx.empty_graph(N)
-        dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
+    debris_removal_network(G, iterations, P0, plow, new_fragments_per_collision, int(15) * int(rate))
