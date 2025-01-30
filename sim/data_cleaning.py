@@ -14,7 +14,7 @@ import datetime
 from scipy.spatial.transform import Rotation
 
 # Load the dataset
-dataset = pd.read_csv("../data/uniform_generated.csv")
+dataset = pd.read_csv("../data/exponential_generated.csv")
 
 # Removing irrelevant columns
 dataset = dataset.drop(

@@ -25,6 +25,14 @@ def set_dataset(dataset_path):
     with open("data_cleaning.py", "w") as file:
         file.writelines(lines)
 
+def fast_arr(objects: np.ndarray):
+    """
+    Prepare fast array for usage with Numba.
+    """
+    return np.array(
+        [[object[0], object[4], object[6], object[13], 0, 0, 0] for object in objects]
+    )
+
 def run_sim(
     objects: np.ndarray,
     group: int,
@@ -46,9 +54,7 @@ def run_sim(
     """
     objects = objects[0:99]
     initialize_positions(objects, epoch)
-    objects_fast = np.array(
-        [[object[0], object[4], object[6], object[13], 0, 0, 0] for object in objects]
-    )
+    objects_fast = fast_arr(objects)
     matrices = np.array([object[11] for object in objects])
 
     if draw:
@@ -92,34 +98,25 @@ def run_sim(
 
     return parameters, collisions, collision_times
 
-def plot_combined_phase_transitions(results):
+def plot_finite_size_scaling(results, debris_start_time):
     """
-    Plot combined phase transition graphs for all datasets.
+    Plot trajectories using finite size scaling to highlight the phase transition.
     """
     plt.figure(figsize=(12, 8))
 
     for dataset_name, avg_times, avg_collisions, std_collisions in results:
-        # Focus only on the relevant region after debris introduction
-        mask = avg_times >= avg_times[0]
-        filtered_times = avg_times[mask]
-        filtered_collisions = avg_collisions[mask]
-        filtered_std = std_collisions[mask]
+        scaled_time = (avg_times - debris_start_time) / debris_start_time
+        scaled_collisions = avg_collisions / max(avg_collisions)
 
-        # Plot average cumulative collisions with shading for STD
-        plt.plot(filtered_times, filtered_collisions, label=f"{dataset_name} (Avg)")
-        plt.fill_between(
-            filtered_times,
-            filtered_collisions - filtered_std,
-            filtered_collisions + filtered_std,
-            alpha=0.3,
-        )
+        # Plot scaled trajectories
+        plt.plot(scaled_time, scaled_collisions, label=f"{dataset_name} (Scaled)")
 
-    plt.xlabel("Time (seconds after debris addition)")
-    plt.ylabel("Number of Collisions")
-    plt.title("Phase Transition: Collision Dynamics Across Datasets (Averaged)")
+    plt.xlabel("Scaled Time (t / t_debris_start)")
+    plt.ylabel("Scaled Collisions (C / C_max)")
+    plt.title("Finite Size Scaling: Collision Dynamics Across Datasets")
     plt.legend()
     plt.grid(True)
-    plt.savefig("combined_phase_transition_avg.png")
+    plt.savefig("finite_size_scaling.png")
     plt.show()
 
 if __name__ == "__main__":
@@ -138,6 +135,7 @@ if __name__ == "__main__":
 
     for dataset_path, dataset_name in zip(datasets, dataset_names):
         print(f"\nRunning simulations for dataset: {dataset_name}")
+
         set_dataset(dataset_path)
 
         from importlib import reload
@@ -151,9 +149,13 @@ if __name__ == "__main__":
             continue
 
         group = all_groups[0] if len(sys.argv) <= 1 else int(sys.argv[1])
-        group_selection = data_array[:, 12] == group
-        objects = data_array[group_selection]
 
+        # Select given group
+        group_selection = data_array[:, 12] == group
+        data_array_group = data_array[group_selection]
+        objects = data_array_group
+
+        # Collect multiple runs for averaging
         all_collision_counts = []
         all_times = []
 
@@ -175,24 +177,29 @@ if __name__ == "__main__":
 
             times = sorted(set(collision_times))
             collision_counts = [collision_times.count(t) for t in times]
+
             all_collision_counts.append(np.cumsum(collision_counts))
             all_times.append(times)
 
+        # Align time series on a common time grid
         common_time_grid = np.linspace(
             debris_start_time,
             max(max(t) for t in all_times),
             num=600
         )
 
-        interpolated_collision_counts = [
-            np.interp(common_time_grid, run_times, run_counts, left=0)
-            for run_counts, run_times in zip(all_collision_counts, all_times)
-        ]
+        interpolated_collision_counts = []
+        for run_counts, run_times in zip(all_collision_counts, all_times):
+            interpolated_collision_counts.append(
+                np.interp(common_time_grid, run_times, run_counts, left=0)
+            )
 
         avg_collisions = np.mean(interpolated_collision_counts, axis=0)
         std_collisions = np.std(interpolated_collision_counts, axis=0)
 
         results.append((dataset_name, common_time_grid, avg_collisions, std_collisions))
 
-    plot_combined_phase_transitions(results)
-    print("\nCombined phase transition graph with averages generated.")
+    # Plot finite size scaling trajectories
+    plot_finite_size_scaling(results, debris_start_time)
+
+    print("\nFinite size scaling graph generated.")
