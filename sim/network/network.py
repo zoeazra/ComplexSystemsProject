@@ -117,40 +117,6 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
     return avg_degrees, gc_proportions, satellites_launched
 
 
-# if __name__ == "__main__":
-
-#     # initial parameters
-#     N = 1000  # nodes
-#     P = 0.0008  # collision probability
-#     plow = 0.01 # probability of generating new fragments
-#     new_fragments_per_collision = 2  # debris per collision 
-#     iterations = 100  # number of iterations, time steps
-#     launch_freq = 5 # determines after how many timesteps a satellite is launched
-#     nr_sat_launches = 2 # number of satellites launched
-
-#     # # genreate a probability list from 0.001 to 0.0009
-#     # probabilities = np.linspace(0.0001, 0.0009, 10)
-    
-#     # # static data
-#     # static_network_model(N, probabilities)
-    
-#     # dynamic network over time
-#     # Initialize the network
-#     G = nx.empty_graph(N)
-#     avg_degrees, gc_proportions, satellites_launched = dynamic_network_model(
-#         G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq)
-
-#     print(len(satellites_launched))
-#     # Plot the results
-#     plt.figure(figsize=(10, 6))
-#     plt.plot(avg_degrees, gc_proportions, marker='o', color='purple', label='GC Proportion')
-#     plt.title("Relationship Between Average Degree (K) and GC Proportion (S)")
-#     plt.xlabel("Average Degree (K)")
-#     plt.ylabel("GC Proportion (S)")
-#     plt.grid(True)
-#     plt.legend()
-#     plt.show()
-
 def debris_removal_network(G, iterations, P, plow, new_fragments_per_collision, removal_rate):
     # current time
     current_time = time.time()
@@ -193,30 +159,30 @@ def debris_removal_network(G, iterations, P, plow, new_fragments_per_collision, 
                     G.add_node(new_node)
                     print(f"New fragment {new_node} generated from collision between {u} and {v}, total nodes = {len(G.nodes)} \n")
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    # initial parameters
-    N = 1000  # nodes
-    P = 0.0008  # collision probability
-    plow = 0.01 # probability of generating new fragments
-    new_fragments_per_collision = 2  # debris per collision 
-    iterations = 2000  # number of iterations, time steps
+#     # initial parameters
+#     N = 1000  # nodes
+#     P = 0.0008  # collision probability
+#     plow = 0.01 # probability of generating new fragments
+#     new_fragments_per_collision = 2  # debris per collision 
+#     iterations = 2000  # number of iterations, time steps
 
-    # # genreate a probability list from 0.001 to 0.0009
-    # probabilities = np.linspace(0.0001, 0.0009, 10)
+#     # # genreate a probability list from 0.001 to 0.0009
+#     # probabilities = np.linspace(0.0001, 0.0009, 10)
     
-    # # static data
-    # static_network_model(N, probabilities)
+#     # # static data
+#     # static_network_model(N, probabilities)
     
-    # # dynamic network over time
-    # for p in probabilities:
-    #     G = nx.empty_graph(N)
-    #     dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
+#     # # dynamic network over time
+#     # for p in probabilities:
+#     #     G = nx.empty_graph(N)
+#     #     dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
     
-    # debris removal network
-    P0 = 0.0003
-    rate = N**2 * P0 * plow
-    alpha_list = np.linspace(0, 14, 7)
-    for alpha in alpha_list:
-        G = nx.empty_graph(N)
-    debris_removal_network(G, iterations, P0, plow, new_fragments_per_collision, int(15) * int(rate))
+#     # debris removal network
+#     P0 = 0.0003
+#     rate = N**2 * P0 * plow
+#     alpha_list = np.linspace(0, 14, 7)
+#     for alpha in alpha_list:
+#         G = nx.empty_graph(N)
+#     debris_removal_network(G, iterations, P0, plow, new_fragments_per_collision, int(15) * int(rate))
