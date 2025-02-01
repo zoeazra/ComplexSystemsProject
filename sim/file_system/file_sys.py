@@ -71,8 +71,3 @@ def check_directory(directory):
 
 def create_directory(directory):
     os.makedirs(directory)
-
-# Example Usage:
-# write(1, 0.56, 1.23, 5, 'data', 0.5, 0.7)
-# arrival_times, waiting_times = read(5, 'data', 0.5, 0.7)
-# print(arrival_times, waiting_times)

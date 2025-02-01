@@ -86,7 +86,7 @@ def plot_3d_graph(data):
     # scatter plot
     scatter = ax.scatter(adjusted_initial_probabilities, epochs, gc_ratios, c=gc_ratios, cmap='viridis', marker='o')
 
-    # 调整 X 轴刻度
+    # adjust the x ticks
     x_ticks = [max_initial_probability - p for p in np.linspace(min_initial_probability, max_initial_probability, num=5)]
     x_tick_labels = [f"{p:.2e}" for p in np.linspace(min_initial_probability, max_initial_probability, num=5)]
     ax.set_xticks(x_ticks)
@@ -133,8 +133,7 @@ def plot_3d_removal_network(data_dict):
     
     # add color bar
     # fig.colorbar(scatter, ax=ax, label='GC Size / ER Nodes')
-
-
+    
     # add legend
     ax.legend()
     plt.show()

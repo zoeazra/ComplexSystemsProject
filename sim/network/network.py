@@ -64,6 +64,59 @@ def satellite_launch(G, nr_sat_launches):
 
 # A dynamic network model with time steps
 def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, nr_sat_launches, launch_freq):
+    """
+    Simulates a dynamic network model with time steps, where nodes represent satellites or debris, 
+    and edges represent potential collisions. The network evolves through collisions and satellite launches.
+
+    Parameters:
+    -----------
+    G : networkx.Graph
+        The initial network graph, where nodes represent satellites or debris.
+
+    iterations : int
+        The number of simulation steps to run.
+
+    P : float
+        The probability of a collision occurring between two nodes in the network.
+
+    plow : float
+        The probability that a collision generates a new fragment (debris).
+
+    new_fragments_per_collision : int
+        The number of new fragments generated per collision when plow is satisfied.
+
+    nr_sat_launches : int
+        The number of new satellites introduced into the system at each launch event.
+
+    launch_freq : int
+        The frequency (in time steps) at which new satellites are launched.
+
+    Returns:
+    --------
+    avg_degrees : list of float
+        A list of average node degrees over the simulation time steps.
+
+    gc_proportions : list of float
+        A list of proportions of the largest connected component (GC) relative to the total number of nodes.
+
+    satellites_launched : list of int
+        A list tracking the cumulative number of satellites launched at each time step.
+
+    Notes:
+    ------
+    - If the number of nodes exceeds 3000, the simulation stops early to prevent excessive computational load.
+    - Collisions are sampled based on probability `P`, and new fragments may be generated.
+    - A record of the system's evolution is saved to the `results` directory using the `write` function.
+    - New satellites are launched periodically according to `launch_freq`.
+
+    Example Usage:
+    --------------
+    ```
+    G = nx.erdos_renyi_graph(100, 0.1)  # Create an initial random graph
+    avg_degrees, gc_proportions, satellites_launched = dynamic_network_model(G, 100, 0.05, 0.2, 2, 5, 10)
+    ```
+    """
+
     # current time
     current_time = time.time()
 
@@ -118,6 +171,52 @@ def dynamic_network_model(G, iterations, P, plow, new_fragments_per_collision, n
 
 
 def debris_removal_network(G, iterations, P, plow, new_fragments_per_collision, removal_rate):
+
+    """
+    Simulates a dynamic debris removal network where collisions generate new fragments, 
+    and debris removal efforts reduce the number of debris at regular intervals.
+
+    Parameters:
+    -----------
+    G : networkx.Graph
+        The initial network graph, where nodes represent satellites or debris.
+
+    iterations : int
+        The number of simulation steps to run.
+
+    P : float
+        The probability of a collision occurring between two nodes in the network.
+
+    plow : float
+        The probability that a collision generates a new fragment (debris).
+
+    new_fragments_per_collision : int
+        The number of new fragments generated per collision when plow is satisfied.
+
+    removal_rate : int
+        The number of debris removed every 10 time steps. 
+        The removal process stops after half of the total iterations.
+
+    Returns:
+    --------
+    None
+        The function modifies the graph in place and logs results to the `results` directory.
+
+    Notes:
+    ------
+    - If the number of nodes exceeds 12,000, the simulation stops early to prevent excessive computational load.
+    - Debris removal happens every 10 time steps and stops after half of the iterations.
+    - New fragments are generated through collisions with a probability `plow`.
+    - A record of the system’s evolution is saved to the `results` directory using the `write` function.
+
+    Example Usage:
+    --------------
+    ```
+    G = nx.erdos_renyi_graph(100, 0.1)  # Create an initial random graph
+    debris_removal_network(G, 200, 0.05, 0.2, 3, 5)
+    ```
+    """
+
     # current time
     current_time = time.time()
 
@@ -159,30 +258,30 @@ def debris_removal_network(G, iterations, P, plow, new_fragments_per_collision, 
                     G.add_node(new_node)
                     print(f"New fragment {new_node} generated from collision between {u} and {v}, total nodes = {len(G.nodes)} \n")
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     # initial parameters
-#     N = 1000  # nodes
-#     P = 0.0008  # collision probability
-#     plow = 0.01 # probability of generating new fragments
-#     new_fragments_per_collision = 2  # debris per collision 
-#     iterations = 2000  # number of iterations, time steps
+    # initial parameters
+    N = 1000  # nodes
+    P = 0.0008  # collision probability
+    plow = 0.01 # probability of generating new fragments
+    new_fragments_per_collision = 2  # debris per collision 
+    iterations = 2000  # number of iterations, time steps
 
-#     # # genreate a probability list from 0.001 to 0.0009
-#     # probabilities = np.linspace(0.0001, 0.0009, 10)
+    # # genreate a probability list from 0.001 to 0.0009
+    # probabilities = np.linspace(0.0001, 0.0009, 10)
     
-#     # # static data
-#     # static_network_model(N, probabilities)
+    # # static data
+    # static_network_model(N, probabilities)
     
-#     # # dynamic network over time
-#     # for p in probabilities:
-#     #     G = nx.empty_graph(N)
-#     #     dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
+    # # dynamic network over time
+    # for p in probabilities:
+    #     G = nx.empty_graph(N)
+    #     dynamic_network_model(G, iterations, p, plow, new_fragments_per_collision)
     
-#     # debris removal network
-#     P0 = 0.0003
-#     rate = N**2 * P0 * plow
-#     alpha_list = np.linspace(0, 14, 7)
-#     for alpha in alpha_list:
-#         G = nx.empty_graph(N)
-#     debris_removal_network(G, iterations, P0, plow, new_fragments_per_collision, int(15) * int(rate))
+    # debris removal network
+    P0 = 0.0003
+    rate = N**2 * P0 * plow
+    alpha_list = np.linspace(0, 14, 7)
+    for alpha in alpha_list:
+        G = nx.empty_graph(N)
+    debris_removal_network(G, iterations, P0, plow, new_fragments_per_collision, int(15) * int(rate))
