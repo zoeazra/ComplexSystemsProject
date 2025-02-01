@@ -3,6 +3,9 @@
 ## Overview
 This repository hosts a dynamic simulation of space debris to study the onset of Kessler Syndrome. The simulation incorporates a probabilistic collision model and a network analysis approach to explore critical transitions within a modeled debris field in Earth orbit. The project uses various computational methods to simulate orbital mechanics, collision probabilities, and debris evolution over time, employing statistical analysis and visualizations to compare the outcomes under various scenarios.
 
+![Kessler Syndrome Simulation](Kessler.gif)
+
+
 ## Authors
 - ....
 - ....
@@ -63,3 +66,5 @@ python main.py [Group number] [view]
 
 ## License
 This project is licensed under the MIT License - see the LICENSE.md file for details.
+
+
