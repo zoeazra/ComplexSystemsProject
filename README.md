@@ -6,10 +6,10 @@ This repository hosts a dynamic simulation of space debris to study the onset of
 ![Kessler Syndrome Simulation](kessler.gif)
 
 ## Authors
-- Xiaoxuan Zhang (HarvestStars)
+- Xiaoxuan Zhang (here the contributor: HarvestStars)
 - Maarten Stork
-- Zoe Azra
-- Ilias Sofianos
+- Zoë Azra Blei
+- Ilias-Panagiotis Sofianos
 
 ## Acknowledgments
 Parts of the visualization code were inspired by work from Derk Niessink. His repository [OrbitSmash](https://github.com/DerkNiessink/OrbitSmash) provided valuable insights into 3D orbital trajectory rendering. We greatly appreciate his contributions to the field.
