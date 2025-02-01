@@ -1,3 +1,7 @@
+"""
+Simulates space debris collisions using a network-based approach.
+"""
+
 import numpy as np
 from numba import jit
 import random
@@ -12,12 +16,10 @@ import model as md_classic
 import itertools
 from numba import njit, prange
 
-
-
 # standard gravitational parameter = G * M
 mu = 6.6743 * 10**-11 * 5.972 * 10**24  # m**3 * s**-2
 
-# define a variable of the length of the initial objects
+# Initial number of objects to simulate
 INI_NUMBERS = 49
 
 def run_network_sim(
@@ -32,7 +34,14 @@ def run_network_sim(
     mass_debris_probability: float,
     frequency_new_debris: int = None,
 ) -> tuple[list, list, list]:
+    """
+    Runs the network-based space debris simulation.
 
+    Returns:
+        parameters (list): Simulation parameters.
+        collisions (list): Recorded collisions.
+        added_debris (list): Generated debris.
+    """
     objects = objects[0 : INI_NUMBERS-1] # pick up the first INI_NUMBERS objects from the real data
     md_classic.initialize_positions(objects, epoch)
     objects_fast = md_classic.fast_arr(objects)
@@ -128,6 +137,9 @@ def run_network_sim(
 def pick_up_collision_pairs(objects_fast, probability):
     """
     Pick up the collision pairs from the network model, which means there is one edge created between two nodes.
+    
+    Returns:
+        list: Pairs of colliding objects.
     """
     # Pick up the collision pairs from the network model
     N = len(objects_fast)
@@ -144,25 +156,10 @@ def pick_up_collision_pairs(objects_fast, probability):
 @jit(nopython=True, parallel=True)
 def generate_debris_with_probability(object1: np.ndarray, object2: np.ndarray, probability: float, margin: float) -> np.ndarray:
     """
-    Generate the debris in a probabilistic way, which means the collision has a low probability to generate those could be regarded as the node into the network model.
-    Those debris lower than a thredshold mass will be ingored from this network model.
-
-    Parameters:
-        object1: np.ndarray
-            Array representing the first object in collision:
-            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
-        object2: np.ndarray
-            Array representing the second object in collision:
-            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
-        probability: float
-            Probability of generating node debris, should be low.
-        margin: float
-            Margin for positional adjustments.
+    Generates debris with a given probability when two objects collide.
 
     Returns:
-        np.ndarray
-            Array of new debris generated:
-            [['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']]
+        np.ndarray: Array of generated debris.
     """
     # Random number for debris generation
     num_debris = 0
@@ -171,11 +168,11 @@ def generate_debris_with_probability(object1: np.ndarray, object2: np.ndarray, p
     else:
         return np.zeros((0, 7), dtype=np.float64)
 
-    # Preallocate array for debris with explicit types: [int, float, float, int, float, float, float]
+    # Preallocate array for debris with explicit types
     new_debris = np.zeros((num_debris, 7), dtype=np.float64)
 
     # Randomize new parameters for debris
-    g = np.random.rand()  # Random number for semimajor-axis adjustment
+    g = np.random.rand()
     new_semi_major_axis = object1[2] + ((g * 200) - 100)
     
     # Adjust mean anomaly
@@ -185,12 +182,12 @@ def generate_debris_with_probability(object1: np.ndarray, object2: np.ndarray, p
 
     # Parallel loop to initialize debris
     for i in prange(num_debris):
-        new_debris[i, 0] = object1[0]  # EPOCH (int)
-        new_debris[i, 1] = new_mean_anomaly  # MEAN_ANOMALY (float)
-        new_debris[i, 2] = new_semi_major_axis  # SEMIMAJOR_AXIS (float)
-        new_debris[i, 3] = 1  # SATELLITE/DEBRIS_BOOL (int)
-        new_debris[i, 4] = object1[4] + np.random.uniform(margin, 2 * margin)  # pos_x (float)
-        new_debris[i, 5] = object1[5] + np.random.uniform(margin, 2 * margin)  # pos_y (float)
-        new_debris[i, 6] = object1[6] + np.random.uniform(margin, 2 * margin)  # pos_z (float)
+        new_debris[i, 0] = object1[0]
+        new_debris[i, 1] = new_mean_anomaly 
+        new_debris[i, 2] = new_semi_major_axis
+        new_debris[i, 3] = 1  
+        new_debris[i, 4] = object1[4] + np.random.uniform(margin, 2 * margin)
+        new_debris[i, 5] = object1[5] + np.random.uniform(margin, 2 * margin) 
+        new_debris[i, 6] = object1[6] + np.random.uniform(margin, 2 * margin)
 
     return new_debris

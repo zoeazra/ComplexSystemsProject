@@ -1,6 +1,4 @@
 """
-"view.py"
-
 This module contains the class "View" for an animation in the browser, where
 objects are spheres and the positions are drawn around Earth. Red coloured
 spheres indicate debris and white satellites.
@@ -30,7 +28,8 @@ class View:
         """
         Create spheres from the objects that can be drawn on the screen
 
-        Returns the drawable spheres with an initial positions.
+        Returns: 
+            Drawable spheres with an initial positions.
         """
         drawables = [
             sphere(
@@ -58,8 +57,6 @@ class View:
     def draw(self, objects: np.ndarray, time, fps=40):
         """
         Draw the objects on the screen in the browser.
-
-        fps: frame per seconds.
         """
         rate(fps)
         scene.title = f"t = {time} \nN objects = {len(objects)}"

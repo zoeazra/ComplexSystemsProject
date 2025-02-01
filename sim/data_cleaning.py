@@ -1,12 +1,8 @@
 """
-"data_cleaning.py"
-
-This module deals with data_cleaning of satellite data and creates an array
-with this data for usage in the simulation.
+Data cleaning module for satellite and debris dataset.
 
 Satellite and debris data source: http://astria.tacc.utexas.edu/AstriaGraph/
 """
-
 
 import pandas as pd
 import numpy as np
@@ -14,48 +10,22 @@ import os
 import datetime
 from scipy.spatial.transform import Rotation
 
-
+# Load dataset from CSV file
 dataset = pd.read_csv("../data/satellites.csv")
 
 # removing irrelevant columns
 dataset = dataset.drop(
     columns=[
-        "CCSDS_OMM_VERS",
-        "COMMENT",
-        "CREATION_DATE",
-        "ORIGINATOR",
-        "OBJECT_NAME",
-        "OBJECT_ID",
-        "CENTER_NAME",
-        "REF_FRAME",
-        "TIME_SYSTEM",
-        "MEAN_ELEMENT_THEORY",
-        "EPHEMERIS_TYPE",
-        "CLASSIFICATION_TYPE",
-        "ELEMENT_SET_NO",
-        "REV_AT_EPOCH",
-        "BSTAR",
-        "MEAN_MOTION_DOT",
-        "MEAN_MOTION_DDOT",
-        "SITE",
-        "DECAY_DATE",
-        "FILE",
-        "GP_ID",
-        "TLE_LINE0",
-        "TLE_LINE1",
-        "TLE_LINE2",
-        "ECCENTRICITY",
-        "MEAN_MOTION",
-        "PERIOD",
-        "APOAPSIS",
-        "PERIAPSIS",
-        "COUNTRY_CODE",
+        "CCSDS_OMM_VERS", "COMMENT", "CREATION_DATE", "ORIGINATOR", "OBJECT_NAME", "OBJECT_ID", "CENTER_NAME", "REF_FRAME",
+        "TIME_SYSTEM", "MEAN_ELEMENT_THEORY", "EPHEMERIS_TYPE", "CLASSIFICATION_TYPE", "ELEMENT_SET_NO", "REV_AT_EPOCH", "BSTAR",
+        "MEAN_MOTION_DOT", "MEAN_MOTION_DDOT", "SITE", "DECAY_DATE", "FILE", "GP_ID", "TLE_LINE0", "TLE_LINE1", "TLE_LINE2",
+        "ECCENTRICITY", "MEAN_MOTION", "PERIOD", "APOAPSIS", "PERIAPSIS", "COUNTRY_CODE",
     ]
 )
 
 
 def epoch(df_column):
-    """Converting datetime to epoch"""
+    """Convert datetime column to epoch timestamps."""
 
     date_list = list(df_column)
     new_date_list = []
@@ -74,7 +44,7 @@ def epoch(df_column):
     return new_date_list
 
 
-""" Only selecting data in LEO """
+# Select only data in Low Earth Orbit (LEO)
 dataset = dataset.sort_values("SEMIMAJOR_AXIS")
 dataset = dataset[dataset["SEMIMAJOR_AXIS"] < 8371]
 dataset["MEAN_ANOMALY"] = dataset["MEAN_ANOMALY"] * np.pi / 180
@@ -84,7 +54,7 @@ dataset["SEMIMAJOR_AXIS"] = dataset["SEMIMAJOR_AXIS"].apply(
     lambda x: x * 1000
 )  # Convert to meters
 
-""" Creating the rotation matrices for all objects"""
+# Create rotation matrices for all objects
 matrices = []
 for index, row in dataset.iterrows():
     R = Rotation.from_euler(
@@ -97,13 +67,14 @@ for index, row in dataset.iterrows():
 dataset["rotation_matrix"] = matrices
 
 
-""" MAKING GROUPS """
+# Grouping data by semimajor axis range
 linspace = np.linspace(
     min(dataset["SEMIMAJOR_AXIS"]), max(dataset["SEMIMAJOR_AXIS"]), num=100
 )
 bins = np.digitize(np.array(dataset["SEMIMAJOR_AXIS"]), linspace, right=False)
 dataset["groups"] = bins
 
+# Selecting a subset of groups
 subgroups = dataset.loc[dataset["groups"].isin([i for i in range(17, 42)])]
 linspace_sub = np.linspace(
     min(subgroups["SEMIMAJOR_AXIS"]), max(subgroups["SEMIMAJOR_AXIS"]), num=100
@@ -115,10 +86,11 @@ subgroups_["groups"] = bins_sub
 dataset = subgroups_
 # dataset = subgroups_.loc[subgroups_["groups"] != 19] ## ignore this comment
 
+# Remove groups with only one object
 small_group = dataset.groupby("groups")["groups"].count() != 1
 delete = list(small_group.loc[small_group == False].index)
 
-""" Deleting the groups that have no debris """
+# Remove groups without debris
 grouped = dataset.groupby("groups")
 debris_groups = grouped.filter(
     lambda x: all(x["OBJECT_TYPE"].isin(["TBA", "ROCKET BODY", "PAYLOAD"]))
@@ -131,22 +103,23 @@ delete.extend(no_debris)
 dataset = dataset[~dataset["groups"].isin(delete)]
 group_amount = dataset.groupby("groups")["groups"].count()
 
-""" Making data floders of all groups """
+# Create data folders for all groups
 all_groups = []
 for i in group_amount.index:
     all_groups.append(i)
     if not os.path.exists(f"sim_data/group_{i}"):
         os.makedirs(f"sim_data/group_{i}", exist_ok=True)
 
-""" Dividing the dataset up debris and satellites """
+# Keep only payload objects
 dataset = dataset.copy()
 
 # only keep payloads in the dataset
 dataset = dataset[dataset["OBJECT_TYPE"] == "PAYLOAD"]
 
+# Create binary column for object type
 bool_list = [0 if j == "PAYLOAD" else 1 for _, j in dataset["OBJECT_TYPE"].items()]
 dataset["object_bool"] = bool_list
 
-""" FINAL DATASET """
+# Final dataset preparation
 print("DATA CLEAN fully OBJECT Columns:", dataset.columns.tolist())
 data_array = dataset.to_numpy()

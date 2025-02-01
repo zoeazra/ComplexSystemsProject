@@ -1,9 +1,5 @@
 """
-"model.py"
-
-This module contains all model functions. Functions which have to be called
-every time step are accelerated using Numba's jit decorator. The decorator
-ensures that the these functions will be compiled in C code.
+Contains core functions for the space debris simulation.
 """
 
 import numpy as np
@@ -26,10 +22,10 @@ INI_NUMBERS = 49
 
 def fast_arr(objects: np.ndarray):
     """
-    Prepare fast array for usage with Numba.
+    Converts object data into a faster array format for Numba.
 
-    Returns array of the form:
-      -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL'  'pos_x', pos_y', 'pos_z']
+    Returns an array with columns:
+    ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
     """
     return np.array(
         [[object[0], object[4], object[6], object[13], 0, 0, 0] for object in objects]
@@ -48,28 +44,13 @@ def run_sim(
     frequency_new_debris: int,
 ) -> tuple[list, list, list]:
     """
-    Run the simulation by calculating the position of the objects, checking
-    for collisions and handling the collisions.
+    Runs the simulation, computing object positions, detecting collisions, 
+    and handling debris generation.
 
-    objects: array of objects in the following form:
-    -> ['EPOCH', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER',
-       'MEAN_ANOMALY', 'NORAD_CAT_ID', 'SEMIMAJOR_AXIS', 'OBJECT_TYPE',
-       'RCS_SIZE', 'LAUNCH_DATE', 'positions', 'rotation_matrix', 'groups', 'object_bool'].
-    group: number of the orbit group.
-    draw: if true an animation will be started in the browser.
-    margin: threshold of when two objects are colliding.
-    endtime: end time of the simulation in seconds.
-    timestep: size of the time steps in seconds.
-    epoch: Julian date in seconds of the start of the simulation.
-    probability: The probablity of adding new debris per call of the function
-    "random_debris".
-    percentage: percentage of the number of existing debris to add every call
-    of "random_debris".
-    frequency_new_debris: frequency of calling the function "random_debris".
-    If this value is 100 and the timestep is 100, "random_debris" will be called
-    every 100x100 seconds.
-
-    Returns a tuple of the simulation parameters, new debris and collision data.
+    Returns:
+        parameters (list): Simulation settings.
+        collisions (list): List of collisions.
+        added_debris (list): List of generated debris.
     """
 
     # if draw:
@@ -165,20 +146,12 @@ def run_sim(
 
 def initialize_positions(objects: np.ndarray, epoch=1675209600.0):
     """
-    Initialize all objects in the given array to the same given epoch by
-    adjusting object's true anomaly.
-
-    objects: array of objects to be calibrated in the following form:
-        -> ['EPOCH', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER',
-       'MEAN_ANOMALY', 'NORAD_CAT_ID', 'SEMIMAJOR_AXIS', 'OBJECT_TYPE',
-       'RCS_SIZE', 'LAUNCH_DATE', 'positions', 'rotation_matrix', 'groups'].
-    epoch: desired Julian date in seconds (default = Monday 1 November 2021 13:00:01).
+    Aligns all objects to the same epoch by adjusting their true anomaly.
     """
     for object in objects:
         initialized_anomaly = calc_new_anomaly(epoch, object[0], object[4], object[6])
         object[4] = initialized_anomaly
         object[0] = epoch
-
 
 def random_debris(
     objects: np.ndarray,
@@ -192,15 +165,9 @@ def random_debris(
     debris with random orbits and positions. The new debris is added to the
     objects and its random rotation matrix to matrices.
 
-    objects: array of all objects of the form:
-    -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL',
-    'pos_x', pos_y', 'pos_z'].
-    matrices: array of all rotation matrices of the objects.
-    time: current simulation times.
-    percentage: desired percentage of the number of existing objects to add.
-
-    Returns a tuple of the new objects array, matrices array and the number
-    of new debris.
+    Returns:
+        A tuple of the new objects array, matrices array and the number
+        of new debris.
     """
 
     # n_new_debris = np.ceil(len(objects) * (percentage / 100))
@@ -235,12 +202,9 @@ def random_params(objects) -> tuple[float, float, np.ndarray]:
     """
     Returns random object parameters.
 
-    objects: array of all objects of the form:
-    -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL',
-    'pos_x', pos_y', 'pos_z'].
-
-    Return a tuple of the random mean_anomaly in degrees, random semimajor-axis
-    in meters (chosen from existing objects) and rotation matrix.
+    Returns:
+        A tuple of the random mean_anomaly in degrees, random semimajor-axis
+        in meters (chosen from existing objects) and rotation matrix.
     """
     R = Rotation.from_euler(
         "zxz",
@@ -284,15 +248,9 @@ def new_position(
     """
     Calculate the position of an object at specific point in time
 
-    time: time in seconds after object's epoch at which the position will
-    computed.
-    epoch: time corresponding to the mean anomaly of the object.
-    mean_anomaly: anomaly in rad corresponding to the time.
-    semimajor_axis: semimajor axis of the orbit.
-    rotation_matrix: rotation matrix computed from the 3 orbital angles.
-
-    Returns the 3D position vector (in the Earth frame) of the object at
-    the given time.
+    Returns: 
+        The 3D position vector (in the Earth frame) of the object at
+        the given time.
     """
     true_anomaly = calc_new_anomaly(time, epoch, mean_anomaly, semimajor_axis)
     pos_orbit_frame = (
@@ -339,18 +297,10 @@ def check_collisions(
     """
     Checks for collisions by iterating over all possible combinations,
     by checking if the objects in the combination share a similar position.
-    A similar positions means that the distance between the position vectors
-    is smaller than the given margin.
 
-    objects: array of objects to be evaluated. An object has to be in the
-    following form:
-     -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL',
-    'pos_x', pos_y', 'pos_z'].
-    margin: say that there could be a collision when the distance is smaller
-    than this value.
-
-    returns a tuple of the two candidate colliding objects if the distance
-    between the vectors is smaller than the margin.
+    Returns:
+        Tuple of the two candidate colliding objects if the distance
+        between the vectors is smaller than the margin.
     """
     for i in range(len(objects) - 1):
         for j in range(i + 1, len(objects) - 1):
@@ -370,11 +320,6 @@ def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
     1. Optimized version of the check_collisions function using Numba's parallel, which splits the loop iterations in multi cores.
     2. Avoiding the array slicing.
     3. Meanwhile, collect all the collision pairs then return them in a list.
-
-    Parameters:
-        objects (np.ndarray): Array of objects in the form:
-            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
-        margin (float): Collision threshold distance.
 
     Returns:
         list of tuples: Each tuple contains (index_i, index_j, object_i, object_j)
@@ -402,10 +347,6 @@ def check_collisions_optimized(objects: np.ndarray, margin: float) -> list:
 def collision(object1: np.ndarray, object2: np.ndarray) -> np.ndarray:
     """
     Generate debris as a result of a collision.
-
-    object1, object2: The two colliding objects, each in the form:
-    -> ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL',
-       'pos_x', 'pos_y', 'pos_z'].
 
     Returns:
         A NumPy array of debris objects.
@@ -449,9 +390,6 @@ def number_of_debris_this_pair(object1: np.ndarray, object2: np.ndarray) -> int:
     """
     Calculate the number of debris generated per collision based on the relative velocity.
 
-    object1: The first object involved in the collision.
-    object2: The other object involved in the collision.
-
     Returns:
         The number of debris generated per collision.
     """
@@ -475,20 +413,9 @@ def generate_debris_with_margin(object1: np.ndarray, object2: np.ndarray, margin
     """
     Generate debris after collision with adjusted parameters.
 
-    Parameters:
-        object1: np.ndarray
-            Array representing the first object in collision:
-            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
-        object2: np.ndarray
-            Array representing the second object in collision:
-            ['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']
-        margin: float
-            Margin for positional adjustments.
-
     Returns:
-        np.ndarray
-            Array of new debris generated:
-            [['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']]
+        Array of new debris generated:
+        [['EPOCH', 'MEAN_ANOMALY', 'SEMIMAJOR_AXIS', 'SATELLITE/DEBRIS_BOOL', 'pos_x', 'pos_y', 'pos_z']]
     """
     num_debris = 2 # Fixed number of debris generated per collision
     # num_debris = number_of_debris_this_pair(object1, object2)
